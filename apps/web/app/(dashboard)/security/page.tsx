@@ -2,17 +2,27 @@ import { Eye, ShieldAlert, ShieldX, ShieldCheck } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { SecurityEventLog } from "@/components/dashboard/security-event-log";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getSessionContext } from "@/lib/auth/session";
+import { hasDatabase } from "@/lib/env";
+import * as queries from "@/lib/db/queries";
 import { mockSecurityEvents } from "@/lib/mock/data";
 
-export default function SecurityPage() {
-  const totalEvents = mockSecurityEvents.length;
-  const injectionAttempts = mockSecurityEvents.filter(
-    (e) => e.eventType === "prompt_injection"
+export default async function SecurityPage() {
+  const ctx = await getSessionContext();
+  const useDb = hasDatabase() && !!ctx;
+
+  const securityEvents = useDb
+    ? await queries.getSecurityEvents(ctx.tenant.id)
+    : mockSecurityEvents;
+
+  const totalEvents = securityEvents.length;
+  const injectionAttempts = securityEvents.filter(
+    (e) => e.eventType === "prompt_injection",
   ).length;
-  const moderationFlags = mockSecurityEvents.filter(
-    (e) => e.eventType === "content_moderation"
+  const moderationFlags = securityEvents.filter(
+    (e) => e.eventType === "content_moderation",
   ).length;
-  const blockedCount = mockSecurityEvents.filter((e) => e.blocked).length;
+  const blockedCount = securityEvents.filter((e) => e.blocked).length;
 
   return (
     <div className="space-y-6">
@@ -55,7 +65,7 @@ export default function SecurityPage() {
           <CardTitle>Event Log</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <SecurityEventLog events={mockSecurityEvents} />
+          <SecurityEventLog events={securityEvents} />
         </CardContent>
       </Card>
     </div>

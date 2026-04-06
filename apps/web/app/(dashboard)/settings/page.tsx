@@ -3,9 +3,13 @@ import {
   WidgetSettingsForm,
 } from "@/components/dashboard/settings-forms";
 import { EmbedCodeCopy } from "@/components/dashboard/embed-code-copy";
+import { getSessionContext } from "@/lib/auth/session";
 import { mockAssistant } from "@/lib/mock/data";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const ctx = await getSessionContext();
+  const assistant = ctx?.assistant ?? mockAssistant;
+
   return (
     <div className="space-y-6">
       <div>
@@ -16,14 +20,14 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <AssistantSettingsForm assistant={mockAssistant} />
+        <AssistantSettingsForm assistant={assistant} />
 
         <div className="space-y-6">
           <WidgetSettingsForm
-            color={mockAssistant.widgetColor}
-            position={mockAssistant.widgetPosition}
+            color={assistant.widgetColor}
+            position={assistant.widgetPosition}
           />
-          <EmbedCodeCopy assistantId={mockAssistant.id} />
+          <EmbedCodeCopy assistantId={assistant.id} />
         </div>
       </div>
     </div>

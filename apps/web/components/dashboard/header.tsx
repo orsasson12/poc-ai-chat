@@ -1,7 +1,7 @@
 "use client";
 
 import { Moon, Sun, LogOut } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,11 +11,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useMockAuth } from "@/hooks/use-mock-auth";
+import { useAuth } from "@/hooks/use-auth";
 
 export function DashboardHeader() {
   const { setTheme } = useTheme();
-  const { user, signOut } = useMockAuth();
+  const { user, signOut } = useAuth();
 
   const initials = user?.name
     ?.split(" ")

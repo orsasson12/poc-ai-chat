@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(npx create-next-app@latest apps/web --typescript --tailwind --eslint --app --no-src-dir --import-alias=\"@/*\" --no-turbopack --yes)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add button card input label select textarea table badge tabs separator sheet dialog dropdown-menu avatar tooltip popover command sidebar chart form switch skeleton alert sonner --yes)",
+      "Bash(npx tsc:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(timeout 15 npm run dev)",
+      "Bash(npm run:*)",
+      "Bash(curl -sL http://localhost:3000/)",
+      "Bash(timeout 10 curl -v http://localhost:3000/overview)",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(source apps/web/.env.local)",
+      "Bash(export DATABASE_URL=\"postgresql://postgres:orSaassoonn1%40@db.zsighwxnmtbceytgsvym.supabase.co:5432/postgres\")",
+      "Bash(npx next:*)",
+      "Bash(npm ls:*)",
+      "Bash(node -e \"const A = require\\(''@anthropic-ai/sdk''\\); console.log\\(''SDK version:'', require\\(''@anthropic-ai/sdk/package.json''\\).version\\)\")",
+      "Bash(find /c/Users/orsas/OneDrive/Desktop/poc-ai-chat/apps/web -name *url* -o -name *fetch* -o -name *scrape*)",
+      "Bash(find /c/Users/orsas/OneDrive/Desktop/poc-ai-chat/apps/web -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(xargs grep:*)",
+      "Bash(find /c/Users/orsas/OneDrive/Desktop/poc-ai-chat -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(curl:*)",
+      "Bash(node -e \":*)"
+    ]
+  }
+}

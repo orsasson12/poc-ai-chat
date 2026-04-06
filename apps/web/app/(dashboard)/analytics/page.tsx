@@ -3,6 +3,9 @@ import {
   ResolutionRateChart,
   TopQuestionsChart,
 } from "@/components/dashboard/analytics-charts";
+import { getSessionContext } from "@/lib/auth/session";
+import { hasDatabase } from "@/lib/env";
+import * as queries from "@/lib/db/queries";
 import { generateMockVolumeData, mockTopQuestions } from "@/lib/mock/data";
 
 function generateResolutionData() {
@@ -16,8 +19,16 @@ function generateResolutionData() {
   });
 }
 
-export default function AnalyticsPage() {
-  const volumeData = generateMockVolumeData();
+export default async function AnalyticsPage() {
+  const ctx = await getSessionContext();
+  const useDb = hasDatabase() && !!ctx;
+
+  const [volumeData, topQuestions] = await Promise.all([
+    useDb ? queries.getConversationVolume(ctx.tenant.id) : generateMockVolumeData(),
+    useDb ? queries.getTopQuestions(ctx.tenant.id) : mockTopQuestions,
+  ]);
+
+  // Resolution data is still generated (would need daily aggregation table for real data)
   const resolutionData = generateResolutionData();
 
   return (
@@ -34,7 +45,7 @@ export default function AnalyticsPage() {
         <ResolutionRateChart data={resolutionData} />
       </div>
 
-      <TopQuestionsChart data={mockTopQuestions} />
+      <TopQuestionsChart data={topQuestions} />
     </div>
   );
 }

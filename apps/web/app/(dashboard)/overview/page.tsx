@@ -10,18 +10,24 @@ import { MetricCard } from "@/components/dashboard/metric-card";
 import { StatusBadge, SeverityBadge } from "@/components/dashboard/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  mockMetrics,
-  mockKnowledgeItems,
-  mockSecurityEvents,
-} from "@/lib/mock/data";
+import { getSessionContext } from "@/lib/auth/session";
+import { hasDatabase } from "@/lib/env";
+import * as queries from "@/lib/db/queries";
+import { mockMetrics, mockKnowledgeItems, mockSecurityEvents } from "@/lib/mock/data";
 import { formatPercentage } from "@/lib/utils";
 
-export default function OverviewPage() {
-  const erroredItems = mockKnowledgeItems.filter(
-    (item) => item.status === "error"
-  );
-  const recentAlerts = mockSecurityEvents.slice(0, 3);
+export default async function OverviewPage() {
+  const ctx = await getSessionContext();
+  const useDb = hasDatabase() && !!ctx;
+
+  const [metrics, knowledgeItems, securityEvents] = await Promise.all([
+    useDb ? queries.getDashboardMetrics(ctx.tenant.id) : mockMetrics,
+    useDb ? queries.getKnowledgeItems(ctx.tenant.id) : mockKnowledgeItems,
+    useDb ? queries.getSecurityEvents(ctx.tenant.id) : mockSecurityEvents,
+  ]);
+
+  const erroredItems = knowledgeItems.filter((item) => item.status === "error");
+  const recentAlerts = securityEvents.slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -36,25 +42,25 @@ export default function OverviewPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Conversations Today"
-          value={mockMetrics.conversationsToday}
-          description={`${mockMetrics.conversationsWeek} this week`}
+          value={metrics.conversationsToday}
+          description={`${metrics.conversationsWeek} this week`}
           icon={MessageSquare}
         />
         <MetricCard
           title="Resolution Rate"
-          value={formatPercentage(mockMetrics.resolutionRate)}
+          value={formatPercentage(metrics.resolutionRate)}
           description="Questions answered without escalation"
           icon={CheckCircle}
         />
         <MetricCard
           title="CSAT Score"
-          value={formatPercentage(mockMetrics.csatScore)}
+          value={formatPercentage(metrics.csatScore)}
           description="Customer satisfaction"
           icon={ThumbsUp}
         />
         <MetricCard
           title="Unanswered"
-          value={mockMetrics.unansweredCount}
+          value={metrics.unansweredCount}
           description="Questions needing attention"
           icon={HelpCircle}
         />
@@ -71,19 +77,19 @@ export default function OverviewPage() {
         <CardContent>
           <div className="flex items-center gap-4">
             <div className="text-4xl font-bold">
-              {mockMetrics.healthScore}
+              {metrics.healthScore}
               <span className="text-lg text-muted-foreground">/100</span>
             </div>
             <div className="flex-1">
               <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
                 <div
                   className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${mockMetrics.healthScore}%` }}
+                  style={{ width: `${metrics.healthScore}%` }}
                   role="progressbar"
-                  aria-valuenow={mockMetrics.healthScore}
+                  aria-valuenow={metrics.healthScore}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-label={`Health score: ${mockMetrics.healthScore} out of 100`}
+                  aria-label={`Health score: ${metrics.healthScore} out of 100`}
                 />
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -154,7 +160,7 @@ export default function OverviewPage() {
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {event.inputText.slice(0, 50)}
-                        {event.inputText.length > 50 ? "…" : ""}
+                        {event.inputText.length > 50 ? "..." : ""}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">

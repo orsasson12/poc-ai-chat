@@ -9,6 +9,7 @@ import {
   BarChart3,
   Settings,
   Shield,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,6 +26,7 @@ import {
 
 const navItems = [
   { title: "Overview", href: "/overview", icon: LayoutDashboard },
+  { title: "Customers", href: "/customers", icon: Users },
   { title: "Knowledge Base", href: "/knowledge", icon: BookOpen },
   { title: "Conversations", href: "/conversations", icon: MessageSquare },
   { title: "Analytics", href: "/analytics", icon: BarChart3 },
@@ -32,8 +34,20 @@ const navItems = [
   { title: "Security", href: "/security", icon: Shield },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  tenantName: string;
+  planName: string;
+}
+
+export function AppSidebar({ tenantName, planName }: AppSidebarProps) {
   const pathname = usePathname();
+
+  const planLabel =
+    planName === "professional"
+      ? "Professional Plan"
+      : planName === "business"
+        ? "Business Plan"
+        : "Starter Plan";
 
   return (
     <Sidebar>
@@ -66,8 +80,8 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t p-4">
-        <p className="text-xs text-muted-foreground">Smile Dental Practice</p>
-        <p className="text-xs text-muted-foreground">Professional Plan</p>
+        <p className="text-xs text-muted-foreground">{tenantName}</p>
+        <p className="text-xs text-muted-foreground">{planLabel}</p>
       </SidebarFooter>
     </Sidebar>
   );

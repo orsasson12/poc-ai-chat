@@ -1,6 +1,7 @@
 export const env = {
-  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+  databaseUrl: process.env.DATABASE_URL ?? "",
+  supabaseUrl: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
@@ -14,6 +15,7 @@ export const env = {
   canarySalt: process.env.CANARY_SALT ?? "dev-canary-salt",
 } as const;
 
+export const hasDatabase = () => !!env.databaseUrl;
 export const hasSupabase = () => !!env.supabaseUrl && !!env.supabaseAnonKey;
 export const hasOpenAI = () => !!env.openaiApiKey;
 export const hasAnthropic = () => !!env.anthropicApiKey;

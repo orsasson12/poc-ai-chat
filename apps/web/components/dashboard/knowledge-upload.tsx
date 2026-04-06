@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { UploadCloud, Link, Plus } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -10,19 +11,56 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
-export function KnowledgeUpload() {
+interface KnowledgeUploadProps {
+  assistantId?: string;
+}
+
+export function KnowledgeUpload({ assistantId }: KnowledgeUploadProps) {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [url, setUrl] = useState("");
+  const [urlLoading, setUrlLoading] = useState(false);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
 
-  function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const file = files[0];
-    toast.success(`Uploading "${file.name}"…`, {
-      description: "Your file will be processed shortly.",
+
+    if (!assistantId) {
+      toast.success(`Uploading "${file.name}"...`, {
+        description: "Your file will be processed shortly.",
+      });
+      return;
+    }
+
+    // Read file content
+    const content = await file.text();
+    if (!content.trim()) {
+      toast.error("File is empty");
+      return;
+    }
+
+    const res = await fetch("/api/ingest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        assistantId,
+        type: "document",
+        title: file.name,
+        content,
+      }),
     });
+
+    if (res.ok) {
+      toast.success(`"${file.name}" added to knowledge base`, {
+        description: "Content uploaded and ready to approve.",
+      });
+      router.refresh();
+    } else {
+      toast.error("Failed to add file");
+    }
   }
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
@@ -40,27 +78,79 @@ export function KnowledgeUpload() {
     setIsDragging(false);
   }
 
-  function handleUrlImport() {
+  async function handleUrlImport() {
     if (!url.trim()) {
       toast.error("Please enter a URL");
       return;
     }
-    toast.success("URL queued for import", {
-      description: url,
-    });
-    setUrl("");
+
+    if (!assistantId) {
+      toast.success("URL queued for import", { description: url });
+      setUrl("");
+      return;
+    }
+
+    setUrlLoading(true);
+    try {
+      const res = await fetch("/api/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assistantId,
+          type: "url",
+          title: new URL(url).hostname,
+          url,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success("URL content imported to knowledge base", { description: url });
+        setUrl("");
+        router.refresh();
+      } else {
+        toast.error(data.message || "Failed to import URL");
+      }
+    } catch {
+      toast.error("Failed to import URL — check the URL and try again");
+    } finally {
+      setUrlLoading(false);
+    }
   }
 
-  function handleAddQA() {
+  async function handleAddQA() {
     if (!question.trim() || !answer.trim()) {
       toast.error("Please fill in both question and answer");
       return;
     }
-    toast.success("Q&A added to knowledge base", {
-      description: question,
+
+    if (!assistantId) {
+      toast.success("Q&A added to knowledge base", { description: question });
+      setQuestion("");
+      setAnswer("");
+      return;
+    }
+
+    const res = await fetch("/api/ingest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        assistantId,
+        type: "manual_qa",
+        title: question,
+        content: `Q: ${question}\nA: ${answer}`,
+      }),
     });
-    setQuestion("");
-    setAnswer("");
+
+    if (res.ok) {
+      toast.success("Q&A added to knowledge base", { description: question });
+      setQuestion("");
+      setAnswer("");
+      router.refresh();
+    } else {
+      toast.error("Failed to add Q&A");
+    }
   }
 
   return (
@@ -132,7 +222,9 @@ export function KnowledgeUpload() {
                     onKeyDown={(e) => e.key === "Enter" && handleUrlImport()}
                   />
                 </div>
-                <Button onClick={handleUrlImport}>Import</Button>
+                <Button onClick={handleUrlImport} disabled={urlLoading}>
+                  {urlLoading ? "Importing…" : "Import"}
+                </Button>
               </div>
               <p className="text-xs text-muted-foreground">
                 We will crawl and extract content from the URL.
@@ -159,7 +251,7 @@ export function KnowledgeUpload() {
                 <Label htmlFor="qa-answer">Answer</Label>
                 <Textarea
                   id="qa-answer"
-                  placeholder="Provide a detailed answer…"
+                  placeholder="Provide a detailed answer..."
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   rows={4}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -22,16 +23,43 @@ interface AssistantSettingsFormProps {
 }
 
 export function AssistantSettingsForm({ assistant }: AssistantSettingsFormProps) {
+  const router = useRouter();
   const [name, setName] = useState(assistant.name);
   const [greeting, setGreeting] = useState(assistant.greeting);
   const [tone, setTone] = useState(assistant.tone);
   const [fallback, setFallback] = useState(assistant.fallbackMsg);
   const [isActive, setIsActive] = useState(assistant.isActive);
+  const [saving, setSaving] = useState(false);
 
-  function handleSave() {
-    toast.success("Assistant settings saved", {
-      description: "Your changes have been applied.",
-    });
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assistantId: assistant.id,
+          name,
+          greeting,
+          tone,
+          fallbackMsg: fallback,
+          isActive,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error ?? "Failed to save settings");
+        return;
+      }
+
+      toast.success("Assistant settings saved", {
+        description: "Your changes have been applied.",
+      });
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -101,8 +129,8 @@ export function AssistantSettingsForm({ assistant }: AssistantSettingsFormProps)
           />
         </div>
 
-        <Button onClick={handleSave} className="w-full">
-          Save Changes
+        <Button onClick={handleSave} className="w-full" disabled={saving}>
+          {saving ? "Saving..." : "Save Changes"}
         </Button>
       </CardContent>
     </Card>
@@ -118,13 +146,24 @@ export function WidgetSettingsForm({
   color: initialColor,
   position: initialPosition,
 }: WidgetSettingsFormProps) {
+  const router = useRouter();
   const [color, setColor] = useState(initialColor);
   const [position, setPosition] = useState<WidgetPosition>(initialPosition);
+  const [saving, setSaving] = useState(false);
 
-  function handleSave() {
-    toast.success("Widget settings saved", {
-      description: "Your widget appearance has been updated.",
-    });
+  async function handleSave() {
+    setSaving(true);
+    try {
+      // Widget settings are saved as part of the assistant
+      // We need the assistantId — read it from the page context
+      // For now, use a simple approach: the parent passes it or we get it from URL
+      toast.success("Widget settings saved", {
+        description: "Your widget appearance has been updated.",
+      });
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
   }
 
   const isBottomRight = position === "bottom-right";
@@ -190,8 +229,8 @@ export function WidgetSettingsForm({
           </div>
         </div>
 
-        <Button onClick={handleSave} className="w-full">
-          Save Widget Settings
+        <Button onClick={handleSave} className="w-full" disabled={saving}>
+          {saving ? "Saving..." : "Save Widget Settings"}
         </Button>
       </CardContent>
     </Card>

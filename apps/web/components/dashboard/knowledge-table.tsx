@@ -1,7 +1,16 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileText, Globe, MessageSquareText, Database, Trash2 } from "lucide-react";
+import {
+  FileText,
+  Globe,
+  MessageSquareText,
+  Database,
+  Trash2,
+  CheckCircle,
+  PauseCircle,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -33,10 +42,42 @@ interface KnowledgeTableProps {
 }
 
 export function KnowledgeTable({ items }: KnowledgeTableProps) {
-  function handleDelete(item: KnowledgeItem) {
-    toast.success(`"${item.title}" deleted`, {
-      description: "The item has been removed from your knowledge base.",
+  const router = useRouter();
+
+  async function handleStatusChange(item: KnowledgeItem, status: "active" | "paused") {
+    const res = await fetch("/api/ingest", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ knowledgeItemId: item.id, status }),
     });
+
+    if (res.ok) {
+      toast.success(
+        status === "active"
+          ? `"${item.title}" approved`
+          : `"${item.title}" paused`,
+      );
+      router.refresh();
+    } else {
+      toast.error("Failed to update status");
+    }
+  }
+
+  async function handleDelete(item: KnowledgeItem) {
+    const res = await fetch("/api/ingest", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ knowledgeItemId: item.id }),
+    });
+
+    if (res.ok) {
+      toast.success(`"${item.title}" deleted`, {
+        description: "The item has been removed from your knowledge base.",
+      });
+      router.refresh();
+    } else {
+      toast.error("Failed to delete item");
+    }
   }
 
   return (
@@ -48,7 +89,7 @@ export function KnowledgeTable({ items }: KnowledgeTableProps) {
           <TableHead>Status</TableHead>
           <TableHead className="text-right">Chunks</TableHead>
           <TableHead>Added</TableHead>
-          <TableHead className="w-10" />
+          <TableHead className="w-24" />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -74,18 +115,42 @@ export function KnowledgeTable({ items }: KnowledgeTableProps) {
                 {item.chunkCount}
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">
-                {item.createdAt.toLocaleDateString()}
+                {new Date(item.createdAt).toLocaleDateString()}
               </TableCell>
               <TableCell>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Delete "${item.title}"`}
-                  onClick={() => handleDelete(item)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  {item.status !== "active" && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Approve "${item.title}"`}
+                      onClick={() => handleStatusChange(item, "active")}
+                      className="text-green-600 hover:text-green-700"
+                    >
+                      <CheckCircle className="size-4" />
+                    </Button>
+                  )}
+                  {item.status === "active" && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Pause "${item.title}"`}
+                      onClick={() => handleStatusChange(item, "paused")}
+                      className="text-amber-600 hover:text-amber-700"
+                    >
+                      <PauseCircle className="size-4" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Delete "${item.title}"`}
+                    onClick={() => handleDelete(item)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           );

@@ -24,6 +24,12 @@ export function getMockWidgetConfig(): WidgetConfig {
     widgetColor: mockAssistant.widgetColor,
     widgetPosition: mockAssistant.widgetPosition,
     isActive: mockAssistant.isActive,
+    suggestedQuestions: [
+      "What are your office hours?",
+      "What insurance do you accept?",
+      "How do I schedule an appointment?",
+      "What services do you offer?",
+    ],
   };
 }
 

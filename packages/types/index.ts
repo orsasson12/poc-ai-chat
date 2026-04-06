@@ -93,6 +93,7 @@ export interface Message {
   latencyMs: number | null;
   tokensUsed: number | null;
   isFallback: boolean;
+  feedback: "positive" | "negative" | null;
   createdAt: Date;
 }
 
@@ -140,6 +141,7 @@ export interface WidgetConfig {
   widgetColor: string;
   widgetPosition: WidgetPosition;
   isActive: boolean;
+  suggestedQuestions?: string[];
 }
 
 export interface SafetyResult {

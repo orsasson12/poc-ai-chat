@@ -36,13 +36,14 @@ export default function SignupPage() {
         password,
         options: {
           data: { name },
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/overview`,
         },
       });
       if (error) {
         toast.error(error.message);
       } else {
         toast.success("Account created! Check your email to confirm.");
-        router.push("/overview");
+        router.push("/login");
       }
     } finally {
       setLoading(false);

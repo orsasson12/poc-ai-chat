@@ -136,6 +136,7 @@ export const messages = pgTable(
     latencyMs: integer("latency_ms"),
     tokensUsed: integer("tokens_used"),
     isFallback: boolean("is_fallback").default(false).notNull(),
+    feedback: varchar("feedback", { length: 16 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index("messages_conversation_id_idx").on(table.conversationId)]

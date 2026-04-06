@@ -1,17 +1,26 @@
-"use client";
-
-import { useState } from "react";
-import { ConversationList } from "@/components/dashboard/conversation-list";
-import { ConversationDetail } from "@/components/dashboard/conversation-detail";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getSessionContext } from "@/lib/auth/session";
+import { hasDatabase } from "@/lib/env";
+import * as queries from "@/lib/db/queries";
 import { mockConversations, mockMessages } from "@/lib/mock/data";
-import type { Message } from "@bizassist/types";
+import { ConversationsClient } from "@/components/dashboard/conversations-client";
+import { UnansweredQuestions } from "@/components/dashboard/unanswered-questions";
+import type { SatisfactionScore } from "@bizassist/types";
 
-export default function ConversationsPage() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+export default async function ConversationsPage() {
+  const ctx = await getSessionContext();
+  const useDb = hasDatabase() && !!ctx;
 
-  const messages: Message[] =
-    selectedId && mockMessages[selectedId] ? mockMessages[selectedId] : [];
+  const conversations = useDb
+    ? await queries.getConversations(ctx.tenant.id)
+    : mockConversations;
+
+  // Pre-serialize dates for client component
+  const serialized = conversations.map((c) => ({
+    ...c,
+    satisfaction: c.satisfaction as SatisfactionScore,
+    startedAt: c.startedAt instanceof Date ? c.startedAt.toISOString() : String(c.startedAt),
+    endedAt: c.endedAt instanceof Date ? c.endedAt.toISOString() : c.endedAt ? String(c.endedAt) : null,
+  }));
 
   return (
     <div className="space-y-6">
@@ -22,35 +31,13 @@ export default function ConversationsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: "350px 1fr" }}>
-        {/* Conversation List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">
-              Recent Conversations ({mockConversations.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-2">
-            <ConversationList
-              conversations={mockConversations}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-            />
-          </CardContent>
-        </Card>
+      <UnansweredQuestions />
 
-        {/* Transcript Detail */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">
-              {selectedId ? "Transcript" : "Select a Conversation"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-[600px] overflow-y-auto p-0">
-            <ConversationDetail messages={messages} />
-          </CardContent>
-        </Card>
-      </div>
+      <ConversationsClient
+        conversations={serialized}
+        initialMessages={mockMessages}
+        useApi={useDb}
+      />
     </div>
   );
 }
