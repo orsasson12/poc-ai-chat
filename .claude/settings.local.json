@@ -38,7 +38,11 @@
       "Read(//c/Users/orsas/OneDrive/Desktop/**)",
       "Bash(netstat -ano)",
       "Bash(npx --yes serve . -l 4000)",
-      "Bash(node scripts/apply-migration.mjs supabase/migrations/0002_engagement_rules_enhancements.sql)"
+      "Bash(node scripts/apply-migration.mjs supabase/migrations/0002_engagement_rules_enhancements.sql)",
+      "Bash(vercel whoami:*)",
+      "Bash(npm i:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)"
     ]
   }
 }
