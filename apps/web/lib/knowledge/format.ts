@@ -48,8 +48,14 @@ export function formatKnowledgeForLLM(
   title: string,
   content: string,
   type: string,
+  knowledgeItemId?: string,
 ): string {
   if (!content) return "";
+
+  // Structured items include the ID so the LLM can emit [CARD:id] markers
+  if (type === "structured" && knowledgeItemId) {
+    return `## ${title} [ID: ${knowledgeItemId}]\n\n${content}\n\n(This is a structured item with a visual card. When referencing it, use [CARD:${knowledgeItemId}] on its own line to display its card.)`;
+  }
 
   // Q&A items are already formatted
   if (type === "manual_qa") {

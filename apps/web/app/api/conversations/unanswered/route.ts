@@ -1,8 +1,11 @@
+import { NextRequest } from "next/server";
 import { hasDatabase } from "@/lib/env";
 import { getApiSession } from "@/lib/auth/session";
 import * as queries from "@/lib/db/queries";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const tenantIdParam = request.nextUrl.searchParams.get("tenantId");
+
   if (!hasDatabase()) {
     return Response.json({
       questions: [
@@ -13,11 +16,25 @@ export async function GET() {
   }
 
   const session = await getApiSession();
-  if (!session || !session.tenantId) {
+  if (!session) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const questions = await queries.getUnansweredQuestions(session.tenantId);
+  // Use explicit tenantId param (for per-customer views) or fall back to session tenant
+  let tenantId = session.tenantId;
+  if (tenantIdParam) {
+    const tenant = await queries.getTenantById(tenantIdParam);
+    if (!tenant || tenant.ownerId !== session.user.id) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    tenantId = tenantIdParam;
+  }
+
+  if (!tenantId) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const questions = await queries.getUnansweredQuestions(tenantId);
 
   return Response.json({
     questions: questions.map((q) => ({

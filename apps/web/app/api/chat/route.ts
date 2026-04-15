@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { hasDatabase, hasAnthropic, hasPinecone, hasOpenAI } from "@/lib/env";
-import { mockChatResponse } from "@/lib/mock/providers";
+import { mockChatResponse, getMockCards } from "@/lib/mock/providers";
 import { getAnthropicClient } from "@/lib/llm/providers";
 import { buildSystemPrompt } from "@/lib/llm/prompts";
 import { formatKnowledgeForLLM } from "@/lib/knowledge/format";
@@ -9,6 +9,7 @@ import { embedQuery } from "@/lib/rag/embed";
 import { retrieveChunks } from "@/lib/rag/retrieve";
 import { optimizeHistory } from "@/lib/llm/summarize";
 import * as queries from "@/lib/db/queries";
+import type { CardData } from "@bizassist/types";
 
 const chatRequestSchema = z.object({
   assistantId: z.string().uuid(),
@@ -18,6 +19,10 @@ const chatRequestSchema = z.object({
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
     .max(20)
     .optional(),
+  // When the widget's proactive engagement rule fired, it forwards the rule
+  // id on the first message so the conversation can be attributed back to
+  // the rule that opened the chat.
+  engagementRuleId: z.string().uuid().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -31,7 +36,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { assistantId, message, sessionId, history } = parsed.data;
+  const { assistantId, message, sessionId, history, engagementRuleId } = parsed.data;
 
   // Resolve assistant and tenant
   let assistant: Awaited<ReturnType<typeof queries.getAssistantById>> = null;
@@ -56,6 +61,7 @@ export async function POST(request: NextRequest) {
         tenantId,
         assistantId,
         sessionId,
+        engagementRuleId: engagementRuleId ?? null,
       });
       conversationId = conversation.id;
 
@@ -104,6 +110,15 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // Build cards for any [CARD:...] markers in the mock response
+  const allMockCards = getMockCards();
+  const mockCards: Record<string, CardData> = {};
+  for (const [id, card] of Object.entries(allMockCards)) {
+    if (response.includes(`[CARD:${id}]`)) {
+      mockCards[id] = card;
+    }
+  }
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -111,6 +126,12 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: response[i] })}\n\n`));
         await new Promise((r) => setTimeout(r, 15 + Math.random() * 25));
       }
+      // Send meta event with cards before DONE
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ meta: { messageId: null, confidence: 1, sources: [], cards: mockCards } })}\n\n`,
+        ),
+      );
       controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();
     },
@@ -132,13 +153,34 @@ interface ResolvedChunk {
   heading: string | null;
   sourceUrl?: string | null;
   score: number;
+  knowledgeItemId?: string;
+  isStructured?: boolean;
 }
 
 async function resolveChunks(
   message: string,
   tenantId: string,
   confidenceThreshold: number,
-): Promise<{ chunks: ResolvedChunk[]; chunksUsed: string[]; confidence: number }> {
+): Promise<{ chunks: ResolvedChunk[]; chunksUsed: string[]; confidence: number; cards: Record<string, CardData> }> {
+  // Helper to build cards map from knowledge items
+  function buildCards(items: { id: string; title: string; type: string; sourceUrl: string | null; metadata?: unknown }[]): Record<string, CardData> {
+    const cards: Record<string, CardData> = {};
+    for (const item of items) {
+      if (item.type === "structured" && item.metadata && typeof item.metadata === "object") {
+        const meta = item.metadata as { imageUrl?: string | null; cardType: string; fields: Record<string, string | number | boolean | null> };
+        cards[item.id] = {
+          knowledgeItemId: item.id,
+          title: item.title,
+          imageUrl: meta.imageUrl ?? null,
+          cardType: meta.cardType,
+          fields: meta.fields,
+          sourceUrl: item.sourceUrl,
+        };
+      }
+    }
+    return cards;
+  }
+
   // Try semantic search first
   if (hasPinecone() && hasOpenAI()) {
     try {
@@ -156,6 +198,8 @@ async function resolveChunks(
           heading: c.heading,
           sourceUrl: itemMap.get(c.knowledgeItemId)?.sourceUrl ?? null,
           score: c.score,
+          knowledgeItemId: c.knowledgeItemId,
+          isStructured: itemMap.get(c.knowledgeItemId)?.type === "structured",
         }));
 
         const confidence = chunks.reduce((sum, c) => sum + c.score, 0) / chunks.length;
@@ -164,6 +208,7 @@ async function resolveChunks(
           chunks,
           chunksUsed: retrieved.map((c) => c.id),
           confidence,
+          cards: buildCards(items),
         };
       }
     } catch (err) {
@@ -176,16 +221,19 @@ async function resolveChunks(
   const activeItems = knowledgeItems.filter((item) => item.status === "active" && item.content);
 
   const chunks = activeItems.map((item) => ({
-    content: formatKnowledgeForLLM(item.title, item.content!, item.type),
+    content: formatKnowledgeForLLM(item.title, item.content!, item.type, item.id),
     heading: item.title,
     sourceUrl: item.sourceUrl,
     score: 1.0,
+    knowledgeItemId: item.id,
+    isStructured: item.type === "structured",
   }));
 
   return {
     chunks,
     chunksUsed: [],
     confidence: chunks.length > 0 ? 1.0 : 0,
+    cards: buildCards(activeItems),
   };
 }
 
@@ -206,11 +254,13 @@ async function streamClaudeResponse(opts: {
   let chunks: ResolvedChunk[] = [];
   let chunksUsed: string[] = [];
   let confidence = 0;
+  let cards: Record<string, CardData> = {};
   try {
     const result = await resolveChunks(message, tenantId, assistant.confidenceThreshold);
     chunks = result.chunks;
     chunksUsed = result.chunksUsed;
     confidence = result.confidence;
+    cards = result.cards;
   } catch (err) {
     console.error("resolveChunks failed, continuing with no context:", err);
   }
@@ -281,6 +331,10 @@ async function streamClaudeResponse(opts: {
         // Save assistant message to DB before sending meta + DONE
         let savedMessageId: string | null = null;
         if (conversationId && tenantId) {
+          // chunksUsed stores unique knowledgeItemIds referenced — source analytics groups by knowledge item.
+          const knowledgeItemsUsed = [
+            ...new Set(chunks.map((c) => c.knowledgeItemId).filter((id): id is string => Boolean(id))),
+          ];
           const saved = await queries.createMessage({
             conversationId,
             tenantId,
@@ -289,14 +343,23 @@ async function streamClaudeResponse(opts: {
             confidence: confidence.toFixed(3),
             latencyMs,
             isFallback,
+            chunksUsed: knowledgeItemsUsed.length > 0 ? knowledgeItemsUsed : undefined,
           });
           savedMessageId = saved.id;
         }
 
-        // Send meta event with messageId, confidence, and sources
+        // Send meta event with messageId, confidence, sources, and cards
+        // Only include cards that the LLM actually referenced in its response
+        const usedCards: Record<string, CardData> = {};
+        for (const [id, card] of Object.entries(cards)) {
+          if (fullResponse.includes(`[CARD:${id}]`)) {
+            usedCards[id] = card;
+          }
+        }
+
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ meta: { messageId: savedMessageId, confidence, sources } })}\n\n`,
+            `data: ${JSON.stringify({ meta: { messageId: savedMessageId, confidence, sources, cards: usedCards } })}\n\n`,
           ),
         );
 

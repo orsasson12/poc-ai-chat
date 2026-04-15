@@ -7,6 +7,8 @@ import { getSessionContext } from "@/lib/auth/session";
 import { hasDatabase } from "@/lib/env";
 import * as queries from "@/lib/db/queries";
 
+export const revalidate = 30;
+
 export default async function CustomersPage() {
   const ctx = await getSessionContext();
   const useDb = hasDatabase() && !!ctx;

@@ -26,7 +26,19 @@
       "Bash(xargs grep:*)",
       "Bash(find /c/Users/orsas/OneDrive/Desktop/poc-ai-chat -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
       "Bash(curl:*)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(grep -E \"\\\\.tsx?$\")",
+      "Bash(find C:UsersorsasOneDriveDesktoppoc-ai-chat.claude -type f -name *.md)",
+      "Bash(ls:*)",
+      "Bash(head:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:orSaassoonn1%40@db.zsighwxnmtbceytgsvym.supabase.co:5432/postgres\" npx drizzle-kit push)",
+      "Bash(node scripts/verify-migration.mjs)",
+      "Bash(node -e ':*)",
+      "Bash(mkdir -p \"C:/Users/orsas/OneDrive/Desktop/lumina-landing\")",
+      "Read(//c/Users/orsas/OneDrive/Desktop/**)",
+      "Bash(netstat -ano)",
+      "Bash(npx --yes serve . -l 4000)",
+      "Bash(node scripts/apply-migration.mjs supabase/migrations/0002_engagement_rules_enhancements.sql)"
     ]
   }
 }

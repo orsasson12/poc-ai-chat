@@ -1,10 +1,16 @@
 {
   "name": "bizassist",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev --workspace=apps/web",
     "build": "npm run build --workspace=apps/web",
     "lint": "npm run lint --workspace=apps/web"
+  },
+  "dependencies": {
+    "react-markdown": "^10.1.0"
   }
 }

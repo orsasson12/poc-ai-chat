@@ -67,6 +67,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
       assistant = await queries.getAssistantForTenant(tenant.id);
     }
 
+    if (!tenant) return null;
     return { user, tenant, assistant };
   } catch (err) {
     console.error("DB error in getSessionContext:", err);

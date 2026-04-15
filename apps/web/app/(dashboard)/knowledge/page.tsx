@@ -10,6 +10,8 @@ import * as queries from "@/lib/db/queries";
 import { mockKnowledgeItems } from "@/lib/mock/data";
 import type { KnowledgeItemType } from "@bizassist/types";
 
+export const revalidate = 30;
+
 const typeIcons: Record<KnowledgeItemType, React.ComponentType<{ className?: string }>> = {
   document: FileText,
   url: Globe,

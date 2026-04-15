@@ -3,12 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
   BookOpen,
-  MessageSquare,
-  BarChart3,
-  Settings,
-  Shield,
   Users,
 } from "lucide-react";
 import {
@@ -25,13 +20,8 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Overview", href: "/overview", icon: LayoutDashboard },
   { title: "Customers", href: "/customers", icon: Users },
   { title: "Knowledge Base", href: "/knowledge", icon: BookOpen },
-  { title: "Conversations", href: "/conversations", icon: MessageSquare },
-  { title: "Analytics", href: "/analytics", icon: BarChart3 },
-  { title: "Settings", href: "/settings", icon: Settings },
-  { title: "Security", href: "/security", icon: Shield },
 ];
 
 interface AppSidebarProps {
@@ -52,7 +42,7 @@ export function AppSidebar({ tenantName, planName }: AppSidebarProps) {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-6 py-4">
-        <Link href="/overview" className="flex items-center gap-2">
+        <Link href="/customers" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
             B
           </div>
@@ -68,7 +58,7 @@ export function AppSidebar({ tenantName, planName }: AppSidebarProps) {
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     render={<Link href={item.href} />}
-                    isActive={pathname === item.href}
+                    isActive={pathname === item.href || pathname.startsWith(item.href + "/")}
                   >
                     <item.icon className="h-4 w-4" />
                     <span>{item.title}</span>

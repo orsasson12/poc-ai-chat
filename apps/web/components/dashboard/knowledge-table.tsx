@@ -10,6 +10,7 @@ import {
   Trash2,
   CheckCircle,
   PauseCircle,
+  Star,
 } from "lucide-react";
 import {
   Table,
@@ -63,6 +64,25 @@ export function KnowledgeTable({ items }: KnowledgeTableProps) {
     }
   }
 
+  async function handleToggleFeatured(item: KnowledgeItem) {
+    const res = await fetch("/api/ingest", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ knowledgeItemId: item.id, featured: !item.featured }),
+    });
+
+    if (res.ok) {
+      toast.success(
+        item.featured
+          ? `"${item.title}" removed from featured`
+          : `"${item.title}" added to featured`,
+      );
+      router.refresh();
+    } else {
+      toast.error("Failed to update featured status");
+    }
+  }
+
   async function handleDelete(item: KnowledgeItem) {
     const res = await fetch("/api/ingest", {
       method: "DELETE",
@@ -78,6 +98,22 @@ export function KnowledgeTable({ items }: KnowledgeTableProps) {
     } else {
       toast.error("Failed to delete item");
     }
+  }
+
+  function createToggleFeaturedHandler(item: KnowledgeItem) {
+    return () => handleToggleFeatured(item);
+  }
+
+  function createActivateHandler(item: KnowledgeItem) {
+    return () => handleStatusChange(item, "active");
+  }
+
+  function createPauseHandler(item: KnowledgeItem) {
+    return () => handleStatusChange(item, "paused");
+  }
+
+  function createDeleteHandler(item: KnowledgeItem) {
+    return () => handleDelete(item);
   }
 
   return (
@@ -119,12 +155,23 @@ export function KnowledgeTable({ items }: KnowledgeTableProps) {
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
+                  {item.type === "structured" && item.status === "active" && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={item.featured ? `Remove "${item.title}" from featured` : `Feature "${item.title}"`}
+                      onClick={createToggleFeaturedHandler(item)}
+                      className={item.featured ? "text-yellow-500 hover:text-yellow-600" : "text-muted-foreground hover:text-yellow-500"}
+                    >
+                      <Star className={`size-4 ${item.featured ? "fill-current" : ""}`} />
+                    </Button>
+                  )}
                   {item.status !== "active" && (
                     <Button
                       variant="ghost"
                       size="icon-sm"
                       aria-label={`Approve "${item.title}"`}
-                      onClick={() => handleStatusChange(item, "active")}
+                      onClick={createActivateHandler(item)}
                       className="text-green-600 hover:text-green-700"
                     >
                       <CheckCircle className="size-4" />
@@ -135,7 +182,7 @@ export function KnowledgeTable({ items }: KnowledgeTableProps) {
                       variant="ghost"
                       size="icon-sm"
                       aria-label={`Pause "${item.title}"`}
-                      onClick={() => handleStatusChange(item, "paused")}
+                      onClick={createPauseHandler(item)}
                       className="text-amber-600 hover:text-amber-700"
                     >
                       <PauseCircle className="size-4" />
@@ -145,7 +192,7 @@ export function KnowledgeTable({ items }: KnowledgeTableProps) {
                     variant="ghost"
                     size="icon-sm"
                     aria-label={`Delete "${item.title}"`}
-                    onClick={() => handleDelete(item)}
+                    onClick={createDeleteHandler(item)}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="size-4" />

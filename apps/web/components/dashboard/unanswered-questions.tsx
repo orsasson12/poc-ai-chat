@@ -11,14 +11,21 @@ interface UnansweredQuestion {
   createdAt: string;
 }
 
-export function UnansweredQuestions() {
+interface UnansweredQuestionsProps {
+  tenantId?: string;
+}
+
+export function UnansweredQuestions({ tenantId }: UnansweredQuestionsProps = {}) {
   const [questions, setQuestions] = useState<UnansweredQuestion[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/conversations/unanswered");
+        const url = tenantId
+          ? `/api/conversations/unanswered?tenantId=${tenantId}`
+          : "/api/conversations/unanswered";
+        const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
           setQuestions(data.questions ?? []);
@@ -30,7 +37,7 @@ export function UnansweredQuestions() {
       }
     }
     load();
-  }, []);
+  }, [tenantId]);
 
   if (loading) {
     return (

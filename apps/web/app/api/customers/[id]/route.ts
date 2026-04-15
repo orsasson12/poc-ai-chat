@@ -13,9 +13,16 @@ const updateCustomerSchema = z.object({
   greeting: z.string().max(1000).optional(),
   tone: z.string().max(64).optional(),
   fallbackMsg: z.string().max(1000).optional(),
+  escalationEmail: z.string().email().max(256).optional().or(z.literal("")),
+  avatarUrl: z.string().max(2_000_000).optional().or(z.literal("")),
   isActive: z.boolean().optional(),
   widgetColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   widgetPosition: z.enum(["bottom-right", "bottom-left"]).optional(),
+  welcomeBanner: z.string().max(2000).optional().or(z.literal("")),
+  welcomeButtons: z
+    .array(z.object({ id: z.string(), label: z.string().min(1).max(50), url: z.string().min(1) }))
+    .max(5)
+    .optional(),
 });
 
 export async function GET(
@@ -85,7 +92,7 @@ export async function PUT(
     );
   }
 
-  const { name, plan, status, assistantName, greeting, tone, fallbackMsg, isActive, widgetColor, widgetPosition } = parsed.data;
+  const { name, plan, status, assistantName, greeting, tone, fallbackMsg, escalationEmail, avatarUrl, isActive, widgetColor, widgetPosition, welcomeBanner, welcomeButtons } = parsed.data;
 
   // Update tenant fields
   const tenantUpdates: Record<string, string> = {};
@@ -100,14 +107,18 @@ export async function PUT(
   // Update assistant fields
   const assistant = await queries.getAssistantForTenant(id);
   if (assistant) {
-    const assistantUpdates: Record<string, string | boolean> = {};
+    const assistantUpdates: Record<string, string | boolean | null | { id: string; label: string; url: string }[]> = {};
     if (assistantName) assistantUpdates.name = assistantName;
     if (greeting) assistantUpdates.greeting = greeting;
     if (tone) assistantUpdates.tone = tone;
     if (fallbackMsg) assistantUpdates.fallbackMsg = fallbackMsg;
+    if (escalationEmail !== undefined) assistantUpdates.escalationEmail = escalationEmail || null;
+    if (avatarUrl !== undefined) assistantUpdates.avatarUrl = avatarUrl || null;
     if (isActive !== undefined) assistantUpdates.isActive = isActive;
     if (widgetColor) assistantUpdates.widgetColor = widgetColor;
     if (widgetPosition) assistantUpdates.widgetPosition = widgetPosition;
+    if (welcomeBanner !== undefined) assistantUpdates.welcomeBanner = welcomeBanner || null;
+    if (welcomeButtons !== undefined) assistantUpdates.welcomeButtons = welcomeButtons;
 
     if (Object.keys(assistantUpdates).length > 0) {
       await queries.updateAssistant(assistant.id, id, assistantUpdates);

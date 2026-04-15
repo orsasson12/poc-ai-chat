@@ -17,6 +17,11 @@ export function DashboardHeader() {
   const { setTheme } = useTheme();
   const { user, signOut } = useAuth();
 
+  const handleSetLightTheme = () => setTheme("light");
+  const handleSetDarkTheme = () => setTheme("dark");
+  const handleSetSystemTheme = () => setTheme("system");
+  const handleSignOut = () => signOut();
+
   const initials = user?.name
     ?.split(" ")
     .map((n) => n[0])
@@ -38,9 +43,9 @@ export function DashboardHeader() {
           }
         />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setTheme("light")}>Light</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setTheme("dark")}>Dark</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setTheme("system")}>System</DropdownMenuItem>
+          <DropdownMenuItem onClick={handleSetLightTheme}>Light</DropdownMenuItem>
+          <DropdownMenuItem onClick={handleSetDarkTheme}>Dark</DropdownMenuItem>
+          <DropdownMenuItem onClick={handleSetSystemTheme}>System</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <DropdownMenu>
@@ -57,7 +62,7 @@ export function DashboardHeader() {
           <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
             {user?.email}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => signOut()}>
+          <DropdownMenuItem onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
             Sign Out
           </DropdownMenuItem>

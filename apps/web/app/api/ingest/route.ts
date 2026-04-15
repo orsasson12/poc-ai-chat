@@ -12,6 +12,13 @@ const ingestSchema = z.object({
   title: z.string().min(1).max(512),
   content: z.string().optional(),
   url: z.string().url().optional(),
+  metadata: z
+    .object({
+      imageUrl: z.string().nullable().optional(),
+      cardType: z.string().min(1),
+      fields: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
+    })
+    .optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -70,6 +77,7 @@ export async function POST(request: NextRequest) {
     title,
     content,
     sourceUrl: parsed.data.url,
+    metadata: parsed.data.metadata ?? null,
   });
 
   // Process content: chunk, embed, store — then set active
@@ -87,7 +95,8 @@ export async function POST(request: NextRequest) {
 
 const patchSchema = z.object({
   knowledgeItemId: z.string().uuid(),
-  status: z.enum(["pending", "active", "paused", "error"]),
+  status: z.enum(["pending", "active", "paused", "error"]).optional(),
+  featured: z.boolean().optional(),
 });
 
 export async function PATCH(request: NextRequest) {
@@ -113,7 +122,12 @@ export async function PATCH(request: NextRequest) {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
-  await queries.updateKnowledgeItemStatus(item.id, item.tenantId, parsed.data.status);
+  if (parsed.data.status !== undefined) {
+    await queries.updateKnowledgeItemStatus(item.id, item.tenantId, parsed.data.status);
+  }
+  if (parsed.data.featured !== undefined) {
+    await queries.toggleFeatured(item.id, item.tenantId, parsed.data.featured);
+  }
 
   return Response.json({ success: true });
 }

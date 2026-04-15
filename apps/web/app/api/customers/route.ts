@@ -9,7 +9,8 @@ const createCustomerSchema = z.object({
   website: z.string().url().optional().or(z.literal("")),
   industry: z.string().max(128).optional(),
   greeting: z.string().max(1000).optional(),
-  tone: z.enum(["professional", "friendly", "concise", "empathetic"]).optional(),
+  tone: z.enum(["professional", "friendly", "concise", "empathetic", "casual"]).optional(),
+  avatarUrl: z.string().max(2_000_000).optional().or(z.literal("")),
   widgetColor: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { businessName, greeting, tone, widgetColor } = parsed.data;
+  const { businessName, greeting, tone, avatarUrl, widgetColor } = parsed.data;
 
   const slug = businessName
     .toLowerCase()
@@ -70,9 +71,10 @@ export async function POST(request: NextRequest) {
     );
 
     // Update assistant with custom settings if provided
-    const updates: Record<string, string | boolean> = {};
+    const updates: Record<string, string | boolean | null> = {};
     if (greeting) updates.greeting = greeting;
     if (tone) updates.tone = tone;
+    if (avatarUrl) updates.avatarUrl = avatarUrl;
     if (widgetColor) updates.widgetColor = widgetColor;
 
     if (Object.keys(updates).length > 0) {
