@@ -42,7 +42,8 @@
       "Bash(vercel whoami:*)",
       "Bash(npm i:*)",
       "Bash(git push:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(git ls-tree:*)"
     ]
   }
 }
