@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/analytics/rollup",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/analytics/cluster",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/compliance/retention/run",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
