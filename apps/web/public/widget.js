@@ -234,14 +234,19 @@
   }
 
   var engageDebounce = null;
+  var lastEngageFetchAt = 0;
+  var engageDisabled = false;
+  var ENGAGE_MIN_INTERVAL_MS = 15000;
   function checkEngagement() {
-    if (state.proactiveShown || state.widgetOpen) return;
+    if (engageDisabled || state.proactiveShown || state.widgetOpen) return;
+    if (Date.now() - lastEngageFetchAt < ENGAGE_MIN_INTERVAL_MS) return;
     if (engageDebounce) clearTimeout(engageDebounce);
     engageDebounce = setTimeout(fetchEngagement, 500);
   }
 
   function fetchEngagement() {
-    if (state.proactiveShown || state.widgetOpen) return;
+    if (engageDisabled || state.proactiveShown || state.widgetOpen) return;
+    lastEngageFetchAt = Date.now();
     var body = getSignals();
     body.suppressedRuleIds = computeSuppressedRuleIds();
     fetch(origin + "/api/widget/" + assistantId + "/engage", {
@@ -262,6 +267,8 @@
             cta: data.messageCta || null,
             buttons: data.messageButtons || [],
           });
+        } else if (data && data.noRules) {
+          engageDisabled = true;
         }
       })
       .catch(function () {});

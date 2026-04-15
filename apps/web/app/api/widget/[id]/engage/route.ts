@@ -61,7 +61,7 @@ export async function POST(
 
   const rules = await queries.getEngagementRules(assistantId, assistant.tenantId);
   if (rules.length === 0) {
-    return Response.json({ engage: false });
+    return Response.json({ engage: false, noRules: true });
   }
 
   // Map DB rows to the type interface. Drizzle json columns may come back as
