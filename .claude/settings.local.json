@@ -43,7 +43,9 @@
       "Bash(npm i:*)",
       "Bash(git push:*)",
       "Bash(git pull:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(supabase --version)",
+      "Bash(npx -y supabase --version)"
     ]
   }
 }

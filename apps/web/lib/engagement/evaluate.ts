@@ -22,6 +22,9 @@ export interface EvaluationResult {
   messageImage?: string | null;
   messageCta?: MessageCta | null;
   messageButtons?: MessageButton[];
+  // Clickable suggested questions. Clicking one opens the chat and sends
+  // the question text as the visitor's first message.
+  qualifyingQuestions?: string[];
   // Cap values echoed back so the widget can manage session-local suppression.
   maxPerSession?: number;
   cooldownSeconds?: number;
@@ -75,6 +78,7 @@ export function evaluateEngagementRules(
         messageImage: rule.messageImage ?? null,
         messageCta: rule.messageCta ?? null,
         messageButtons: rule.messageButtons ?? [],
+        qualifyingQuestions: rule.qualifyingQuestions ?? [],
         maxPerSession: rule.maxPerSession ?? 0,
         cooldownSeconds: rule.cooldownSeconds ?? 0,
       };

@@ -83,6 +83,11 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
   // the first message to /api/chat can attribute the resulting conversation
   // to the rule. Cleared after the first message is sent.
   const engagementRuleIdRef = useRef<string | null>(null);
+  // A qualifying-question text handed over from the proactive bubble. When
+  // set, an effect auto-sends it as the visitor's first user message once the
+  // chat is ready. Single-shot — guarded by autoSentRef so it never double-fires.
+  const pendingAutoMessageRef = useRef<string | null>(null);
+  const autoSentRef = useRef<boolean>(false);
 
   // Initialize session from storage or create new
   useEffect(() => {
@@ -145,17 +150,24 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
     function handleProactiveEngage(ev: MessageEvent) {
       if (!ev.data || typeof ev.data !== "object") return;
       if ((ev.data as { type?: string }).type !== "ba:proactive_engage") return;
-      const payload = (ev.data as { payload?: { ruleId?: string } }).payload;
+      const payload = (ev.data as { payload?: { ruleId?: string; autoSendMessage?: string } }).payload;
       if (payload?.ruleId && typeof payload.ruleId === "string") {
         engagementRuleIdRef.current = payload.ruleId;
       }
+      if (payload?.autoSendMessage && typeof payload.autoSendMessage === "string") {
+        pendingAutoMessageRef.current = payload.autoSendMessage;
+      }
     }
-    // Also allow the URL to carry the ruleId (useful for the landing-page
-    // test harness where the widget opens with a preset rule).
+    // Also allow the URL to carry the ruleId and auto-send text — the widget
+    // passes them as query params on first iframe load (before the listener
+    // above has a chance to attach), and the landing-page harness uses the
+    // same mechanism to preview rules.
     try {
       const params = new URLSearchParams(window.location.search);
       const paramRule = params.get("engagementRuleId");
       if (paramRule) engagementRuleIdRef.current = paramRule;
+      const paramAutoSend = params.get("autoSend");
+      if (paramAutoSend) pendingAutoMessageRef.current = paramAutoSend;
     } catch {
       /* SSR/no-window — noop */
     }
@@ -407,6 +419,20 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
       setIsWaiting(false);
     }
   }, [assistantId, messages, isEscalated, escalationId, cookielessMode]);
+
+  // Auto-send a qualifying-question handed over from the proactive bubble.
+  // Fires once per mount, after history has loaded and the chat is idle, so
+  // it doesn't race with the history-load effect or a manual send in flight.
+  useEffect(() => {
+    if (autoSentRef.current) return;
+    if (!historyLoaded) return;
+    if (isStreaming || isWaiting) return;
+    const pending = pendingAutoMessageRef.current;
+    if (!pending) return;
+    autoSentRef.current = true;
+    pendingAutoMessageRef.current = null;
+    handleSend(pending);
+  }, [historyLoaded, isStreaming, isWaiting, handleSend]);
 
   const handleFeedback = useCallback(async (messageId: string, feedback: "positive" | "negative") => {
     setMessages((prev) =>

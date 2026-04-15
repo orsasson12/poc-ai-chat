@@ -266,6 +266,7 @@
             image: data.messageImage || null,
             cta: data.messageCta || null,
             buttons: data.messageButtons || [],
+            questions: data.qualifyingQuestions || [],
           });
         } else if (data && data.noRules) {
           engageDisabled = true;
@@ -313,6 +314,11 @@
       ".ba-proactive-btn-primary{background:#1a1a1a;color:white}",
       ".ba-proactive-btn-primary:hover{background:#000}",
       ".ba-proactive-btn:focus-visible{outline:3px solid #005fcc;outline-offset:2px}",
+      // Qualifying-question chips: vertical stack, full-width, left-aligned.
+      ".ba-proactive-questions{margin-top:10px;display:flex;flex-direction:column;gap:6px}",
+      ".ba-proactive-question{display:block;width:100%;padding:8px 12px;background:#f3f4f6;color:#1a1a1a;border:1px solid #e5e7eb;border-radius:8px;font:inherit;font-size:13px;text-align:left;cursor:pointer;min-height:36px;box-sizing:border-box;transition:background .15s ease}",
+      ".ba-proactive-question:hover{background:#e5e7eb}",
+      ".ba-proactive-question:focus-visible{outline:3px solid #005fcc;outline-offset:2px}",
       // Screen reader only utility
       ".ba-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}",
       // Live region (hidden but announced)
@@ -369,12 +375,24 @@
   }
 
   // ---- Iframe ----
-  function loadIframe() {
+  // `extras` (optional): { autoSend: string, engagementRuleId: string } — when
+  // the visitor clicks a qualifying-question chip in the proactive bubble, we
+  // pre-load the iframe with the clicked text in the query string so the chat
+  // page can auto-send it on mount. Ignored on subsequent opens (iframe is
+  // already loaded; postMessage is used instead).
+  function loadIframe(extras) {
     if (state.iframeLoaded) return;
     state.iframeLoaded = true;
 
+    var src = origin + "/chat/" + assistantId + "?embed=true&visitorId=" + encodeURIComponent(visitorId);
+    if (extras && extras.autoSend) {
+      src += "&autoSend=" + encodeURIComponent(extras.autoSend);
+    }
+    if (extras && extras.engagementRuleId) {
+      src += "&engagementRuleId=" + encodeURIComponent(extras.engagementRuleId);
+    }
     iframe = document.createElement("iframe");
-    iframe.src = origin + "/chat/" + assistantId + "?embed=true&visitorId=" + encodeURIComponent(visitorId);
+    iframe.src = src;
     iframe.setAttribute("title", "Chat assistant conversation");
     iframe.setAttribute("allow", "microphone");
     // Allow iframe content to be accessible
@@ -587,6 +605,34 @@
       proactiveBubble.appendChild(actionsRow);
     }
 
+    // Qualifying-question chips — clicking one opens the chat and sends that
+    // text as the visitor's first message.
+    var questions = rich && rich.questions ? rich.questions : [];
+    if (questions.length > 0) {
+      var qList = document.createElement("div");
+      qList.className = "ba-proactive-questions";
+      qList.setAttribute("role", "group");
+      qList.setAttribute("aria-label", "Suggested questions");
+
+      var maxQuestions = Math.min(questions.length, 5);
+      for (var qi = 0; qi < maxQuestions; qi++) {
+        var qText = questions[qi];
+        if (!qText || typeof qText !== "string") continue;
+        var qBtn = document.createElement("button");
+        qBtn.className = "ba-proactive-question";
+        qBtn.type = "button";
+        qBtn.textContent = qText;
+        (function (captured) {
+          qBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            handleQuestionClick(captured, ruleId);
+          });
+        })(qText);
+        qList.appendChild(qBtn);
+      }
+      proactiveBubble.appendChild(qList);
+    }
+
     document.body.appendChild(proactiveBubble);
 
     // Announce to screen readers
@@ -604,6 +650,41 @@
     if (proactiveBubble) {
       proactiveBubble.remove();
       proactiveBubble = null;
+    }
+  }
+
+  // Visitor clicked a qualifying-question chip in the proactive bubble:
+  // open the chat, inject the clicked text as the first user message, and
+  // record the engagement against the rule.
+  function handleQuestionClick(questionText, ruleId) {
+    fetch(origin + "/api/widget/" + assistantId + "/engage", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ruleId: ruleId, event: "engagement", visitorId: visitorId }),
+    }).catch(function () {});
+
+    var wasLoaded = state.iframeLoaded;
+    hideProactiveMessage();
+
+    // First open: pre-load iframe with query params so the chat page can read
+    // them on mount. openWidget() will no-op its internal loadIframe() call
+    // because state.iframeLoaded is already true.
+    if (!wasLoaded) {
+      loadIframe({ autoSend: questionText, engagementRuleId: ruleId });
+    }
+    openWidget();
+
+    // Re-open: iframe is already mounted and its URL params were consumed on
+    // first mount, so hand the click off via postMessage instead.
+    if (wasLoaded && iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
+        type: "ba:proactive_engage",
+        payload: {
+          ruleId: ruleId,
+          autoSendMessage: questionText,
+          signals: getSignals(),
+        },
+      }, origin);
     }
   }
 
