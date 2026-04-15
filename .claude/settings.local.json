@@ -45,7 +45,8 @@
       "Bash(git pull:*)",
       "Bash(git ls-tree:*)",
       "Bash(supabase --version)",
-      "Bash(npx -y supabase --version)"
+      "Bash(npx -y supabase --version)",
+      "Bash(node --check C:/Users/orsas/OneDrive/Desktop/poc-ai-chat/apps/web/public/widget.js)"
     ]
   }
 }

@@ -86,11 +86,19 @@
   var isReturnVisitor = !!store.get(RETURN_KEY);
   store.set(RETURN_KEY, Date.now().toString());
 
+  // When the visitor dismissed the proactive popup, the old behaviour was to
+  // return from the IIFE entirely, which also hid the bubble — so the chat
+  // became unreachable for 24 hours. We now suppress only the proactive popup
+  // via this flag, leaving the bubble (and the chat itself) fully available.
+  var proactiveSuppressedForSession = false;
   var dismissedAt = store.get(DISMISS_KEY);
   if (dismissedAt) {
     var dismissedMs = parseInt(dismissedAt, 10);
-    if (Date.now() - dismissedMs < 24 * 60 * 60 * 1000) return;
-    store.remove(DISMISS_KEY);
+    if (Date.now() - dismissedMs < 24 * 60 * 60 * 1000) {
+      proactiveSuppressedForSession = true;
+    } else {
+      store.remove(DISMISS_KEY);
+    }
   }
 
   // ---- Motion preference ----
@@ -238,14 +246,14 @@
   var engageDisabled = false;
   var ENGAGE_MIN_INTERVAL_MS = 15000;
   function checkEngagement() {
-    if (engageDisabled || state.proactiveShown || state.widgetOpen) return;
+    if (engageDisabled || proactiveSuppressedForSession || state.proactiveShown || state.widgetOpen) return;
     if (Date.now() - lastEngageFetchAt < ENGAGE_MIN_INTERVAL_MS) return;
     if (engageDebounce) clearTimeout(engageDebounce);
     engageDebounce = setTimeout(fetchEngagement, 500);
   }
 
   function fetchEngagement() {
-    if (engageDisabled || state.proactiveShown || state.widgetOpen) return;
+    if (engageDisabled || proactiveSuppressedForSession || state.proactiveShown || state.widgetOpen) return;
     lastEngageFetchAt = Date.now();
     var body = getSignals();
     body.suppressedRuleIds = computeSuppressedRuleIds();
