@@ -75,6 +75,10 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [escalationId, setEscalationId] = useState<string | null>(null);
   const [isEscalated, setIsEscalated] = useState(false);
+  // True when the chat is rendered inside the widget iframe (vs. loaded
+  // directly at /chat/[id]). Drives the close-button affordance in the
+  // header: only embedded chats can ask the parent widget to close them.
+  const [isEmbedded, setIsEmbedded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string>("");
   const lastUserMessageRef = useRef<string>("");
@@ -99,6 +103,16 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
       sessionIdRef.current = `sess_${crypto.randomUUID().slice(0, 8)}`;
     }
   }, [assistantId, cookielessMode]);
+
+  // Detect iframe embedding on mount so the header can render a close button
+  // that tells the parent widget shell to hide the chat.
+  useEffect(() => {
+    try {
+      if (window.parent !== window) setIsEmbedded(true);
+    } catch {
+      setIsEmbedded(true);
+    }
+  }, []);
 
   // Load conversation history if session exists
   useEffect(() => {
@@ -455,6 +469,17 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
     }
   }, [assistantId]);
 
+  // Asks the parent widget shell (widget.js) to hide the chat container.
+  // widget.js listens for `ba:close_widget` on window.message and calls its
+  // own closeWidget(). No-op when not embedded.
+  const handleClose = useCallback(() => {
+    try {
+      window.parent.postMessage({ type: "ba:close_widget" }, "*");
+    } catch {
+      /* cross-frame postMessage failed — nothing to do */
+    }
+  }, []);
+
   const handleRetry = useCallback(() => {
     if (!lastUserMessageRef.current) return;
     // Remove the error message and the last user message
@@ -489,17 +514,29 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
           <img
             src={avatarUrl}
             alt={`${assistantName} avatar`}
-            className="h-8 w-8 rounded-full object-cover"
+            className="h-8 w-8 rounded-full object-cover shrink-0"
           />
         ) : (
-          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm" aria-hidden="true">
+          <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm shrink-0" aria-hidden="true">
             {assistantName[0]}
           </div>
         )}
-        <div className="text-white">
-          <p className="text-sm font-medium">{assistantName}</p>
-          <p className="text-xs opacity-80" aria-live="polite">{isEscalated ? "Connected to Team" : "Online"}</p>
+        <div className="text-white min-w-0 flex-1">
+          <p className="text-sm font-medium truncate">{assistantName}</p>
+          <p className="text-xs opacity-80 truncate" aria-live="polite">{isEscalated ? "Connected to Team" : "Online"}</p>
         </div>
+        {isEmbedded && (
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close chat"
+            className="shrink-0 flex items-center justify-center h-9 w-9 rounded-full text-white/90 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 transition-colors"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="h-5 w-5">
+              <path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+            </svg>
+          </button>
+        )}
       </header>
       {/* AI Act Art. 50 transparency disclosure — controlled by tenant compliance settings. */}
       {aiDisclosure?.mode !== "off" && (

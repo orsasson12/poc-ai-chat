@@ -326,7 +326,9 @@
       // Animation
       "@keyframes ba-slide-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}",
       // Mobile: full screen
-      "@media(max-width:480px){.ba-container{width:100%;height:100%;bottom:0;right:0;left:0;border-radius:0;max-height:100vh}}",
+      // Mobile: bottom-sheet with margin on both sides so the host page is
+      // still partially visible and the bubble stays reachable below.
+      "@media(max-width:480px){.ba-container{width:auto;left:12px;right:12px;bottom:88px;height:calc(100vh - 108px);max-height:calc(100vh - 108px);border-radius:16px}}",
       // Reduced motion
       "@media(prefers-reduced-motion:reduce){.ba-bubble,.ba-proactive,.ba-proactive-close{transition:none;animation:none}.ba-bubble:hover{transform:none}}",
     ].join("\n");
