@@ -14,6 +14,10 @@ export type SecurityEventType =
 export type SecuritySeverity = "low" | "medium" | "high" | "critical";
 export type SatisfactionScore = -1 | 0 | 1;
 export type WidgetPosition = "bottom-right" | "bottom-left";
+export type LauncherAnimation = "none" | "pulse" | "bounce" | "attention_flash";
+export const LAUNCHER_ANIMATIONS: readonly LauncherAnimation[] = [
+  "none", "pulse", "bounce", "attention_flash",
+] as const;
 export type EscalationTrigger = "low_confidence" | "explicit_request" | "repeat_failure" | "safety" | "sentiment";
 export type EscalationMode = "email" | "native" | "webhook";
 export type EscalationStatus = "pending" | "assigned" | "active" | "resolved" | "expired";
@@ -65,6 +69,9 @@ export interface Assistant {
   avatarUrl: string | null;
   widgetColor: string;
   widgetPosition: WidgetPosition;
+  launcherAnimation: LauncherAnimation;
+  launcherAccentColor: string | null;
+  launcherAnimationIntervalSec: number;
   isActive: boolean;
   confidenceThreshold: number;
   welcomeBanner: string | null;
@@ -651,6 +658,9 @@ export interface WidgetConfig {
   avatarUrl: string | null;
   widgetColor: string;
   widgetPosition: WidgetPosition;
+  launcherAnimation: LauncherAnimation;
+  launcherAccentColor: string | null;
+  launcherAnimationIntervalSec: number;
   isActive: boolean;
   suggestedQuestions?: string[];
   featuredCards?: CardData[];

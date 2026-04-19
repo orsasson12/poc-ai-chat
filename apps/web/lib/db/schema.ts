@@ -33,6 +33,9 @@ export const securityEventTypeEnum = pgEnum("security_event_type", [
 ]);
 export const securitySeverityEnum = pgEnum("security_severity", ["low", "medium", "high", "critical"]);
 export const widgetPositionEnum = pgEnum("widget_position", ["bottom-right", "bottom-left"]);
+export const launcherAnimationEnum = pgEnum("launcher_animation", [
+  "none", "pulse", "bounce", "attention_flash",
+]);
 export const escalationTriggerEnum = pgEnum("escalation_trigger", [
   "low_confidence", "explicit_request", "repeat_failure", "safety", "sentiment",
 ]);
@@ -113,6 +116,9 @@ export const assistants = pgTable(
     avatarUrl: text("avatar_url"),
     widgetColor: varchar("widget_color", { length: 7 }).notNull().default("#2563eb"),
     widgetPosition: widgetPositionEnum("widget_position").default("bottom-right").notNull(),
+    launcherAnimation: launcherAnimationEnum("launcher_animation").default("none").notNull(),
+    launcherAccentColor: varchar("launcher_accent_color", { length: 7 }),
+    launcherAnimationIntervalSec: integer("launcher_animation_interval_sec").default(8).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     confidenceThreshold: numeric("confidence_threshold", { precision: 3, scale: 2 })
       .default("0.65")
