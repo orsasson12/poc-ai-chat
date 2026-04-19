@@ -13,6 +13,14 @@ export const env = {
   upstashRedisToken: process.env.UPSTASH_REDIS_REST_TOKEN ?? "",
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   canarySalt: process.env.CANARY_SALT ?? "dev-canary-salt",
+  sentryDsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN ?? "",
+  sentryEnvironment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? "development",
+  sentryTracesSampleRate: Number(
+    process.env.SENTRY_TRACES_SAMPLE_RATE ?? (process.env.NODE_ENV === "production" ? "0.1" : "1.0"),
+  ),
+  axiomToken: process.env.AXIOM_TOKEN ?? "",
+  axiomDataset: process.env.AXIOM_DATASET ?? "",
+  axiomOrgId: process.env.AXIOM_ORG_ID ?? "",
 } as const;
 
 export const hasDatabase = () => !!env.databaseUrl;
@@ -22,4 +30,6 @@ export const hasAnthropic = () => !!env.anthropicApiKey;
 export const hasPinecone = () => !!env.pineconeApiKey;
 export const hasStripe = () => !!env.stripeSecretKey;
 export const hasUpstash = () => !!env.upstashRedisUrl;
+export const hasSentry = () => !!env.sentryDsn;
+export const hasAxiom = () => !!env.axiomToken && !!env.axiomDataset;
 export const isMockMode = () => !hasSupabase();

@@ -26,15 +26,48 @@
   let isOpen = false;
   let config: { name: string; widgetColor: string; greeting: string } | null = null;
 
+  function reportError(err: unknown, stage: string) {
+    try {
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      const payload = JSON.stringify({
+        assistantId,
+        message: message.slice(0, 500),
+        stack: stack?.slice(0, 4000),
+        url: location.href.slice(0, 500),
+        userAgent: navigator.userAgent.slice(0, 300),
+        context: { stage },
+      });
+      const endpoint = `${baseUrl}/api/widget/error`;
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(endpoint, new Blob([payload], { type: "application/json" }));
+      } else {
+        fetch(endpoint, { method: "POST", body: payload, headers: { "Content-Type": "application/json" }, keepalive: true }).catch(() => {});
+      }
+    } catch {
+      // Telemetry must never throw.
+    }
+  }
+
   async function fetchConfig() {
     try {
       const res = await fetch(`${baseUrl}/api/widget/${assistantId}/config`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        reportError(new Error(`Widget config fetch returned ${res.status}`), "fetch_config");
+        return;
+      }
       config = await res.json();
-    } catch {
-      // Silent failure
+    } catch (err) {
+      reportError(err, "fetch_config");
     }
   }
+
+  window.addEventListener("error", (e) => {
+    if (e.error) reportError(e.error, "window_error");
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    reportError(e.reason, "unhandled_rejection");
+  });
 
   function createBubble() {
     bubble = document.createElement("div");

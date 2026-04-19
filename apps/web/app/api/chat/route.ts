@@ -9,6 +9,8 @@ import { embedQuery } from "@/lib/rag/embed";
 import { retrieveChunks } from "@/lib/rag/retrieve";
 import { optimizeHistory } from "@/lib/llm/summarize";
 import * as queries from "@/lib/db/queries";
+import { logger } from "@/lib/observability";
+import { classifyError } from "@/lib/observability/scrub";
 import type { CardData } from "@bizassist/types";
 
 const chatRequestSchema = z.object({
@@ -26,6 +28,7 @@ const chatRequestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
   const body = await request.json();
   const parsed = chatRequestSchema.safeParse(body);
 
@@ -72,10 +75,19 @@ export async function POST(request: NextRequest) {
         content: message,
       });
     } catch (err) {
-      console.error("Failed to save user message:", err);
+      logger.error(err, { tenantId, conversationId, assistantId, stage: "save_user_message" });
       // Continue without persistence — still try to generate a response
     }
   }
+
+  logger.event("chat.request.started", {
+    tenantId,
+    assistantId,
+    sessionId,
+    conversationId,
+    messageLen: message.length,
+    hasHistory: (history?.length ?? 0) > 0,
+  });
 
   // Try real AI, fall back to mock
   if (hasAnthropic() && assistant && tenant && tenantId) {
@@ -87,9 +99,17 @@ export async function POST(request: NextRequest) {
         conversationId,
         message,
         history: history ?? [],
+        startedAt,
       });
     } catch (err) {
-      console.error("streamClaudeResponse failed:", err);
+      logger.error(err, { tenantId, conversationId, assistantId, stage: "stream_claude_response" });
+      logger.event("chat.request.failed", {
+        tenantId,
+        conversationId,
+        stage: "stream_claude_response",
+        errKind: classifyError(err),
+        durationMs: Date.now() - startedAt,
+      });
       return Response.json(
         { error: "Chat generation failed", details: err instanceof Error ? err.message : "Unknown error" },
         { status: 500 },
@@ -212,7 +232,12 @@ async function resolveChunks(
         };
       }
     } catch (err) {
-      console.error("RAG retrieval failed, falling back to full context:", err);
+      logger.error(err, { tenantId, stage: "rag_retrieve" });
+      logger.event("rag.retrieve.failed", {
+        tenantId,
+        stage: "query",
+        errKind: classifyError(err),
+      });
     }
   }
 
@@ -246,8 +271,9 @@ async function streamClaudeResponse(opts: {
   conversationId: string | null;
   message: string;
   history: { role: "user" | "assistant"; content: string }[];
+  startedAt: number;
 }) {
-  const { assistant, tenant, tenantId, conversationId, message, history } = opts;
+  const { assistant, tenant, tenantId, conversationId, message, history, startedAt } = opts;
   const startTime = Date.now();
 
   // Retrieve relevant chunks (semantic search or fallback)
@@ -262,7 +288,7 @@ async function streamClaudeResponse(opts: {
     confidence = result.confidence;
     cards = result.cards;
   } catch (err) {
-    console.error("resolveChunks failed, continuing with no context:", err);
+    logger.error(err, { tenantId, conversationId, stage: "resolve_chunks" });
   }
 
   // Build source info for SSE meta event — only include sources with external URLs
@@ -297,6 +323,7 @@ async function streamClaudeResponse(opts: {
   // Stream from Claude
   const encoder = new TextEncoder();
   let fullResponse = "";
+  let firstTokenMs: number | null = null;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -315,6 +342,14 @@ async function streamClaudeResponse(opts: {
             event.delta.type === "text_delta"
           ) {
             const text = event.delta.text;
+            if (firstTokenMs === null) {
+              firstTokenMs = Date.now() - startTime;
+              logger.event("chat.stream.token_latency", {
+                tenantId,
+                conversationId,
+                firstTokenMs,
+              });
+            }
             fullResponse += text;
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ token: text })}\n\n`),
@@ -363,10 +398,28 @@ async function streamClaudeResponse(opts: {
           ),
         );
 
+        logger.event("chat.request.completed", {
+          tenantId,
+          conversationId,
+          durationMs: Date.now() - startedAt,
+          firstTokenMs,
+          totalChars: fullResponse.length,
+          confidence,
+          isFallback,
+          chunksCount: chunks.length,
+        });
+
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       } catch (err) {
-        console.error("Claude streaming error:", err);
+        logger.error(err, { tenantId, conversationId, stage: "claude_stream" });
+        logger.event("chat.request.failed", {
+          tenantId,
+          conversationId,
+          stage: "claude_stream",
+          errKind: classifyError(err),
+          durationMs: Date.now() - startedAt,
+        });
         const fallback = assistant.fallbackMsg;
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ token: fallback })}\n\n`),
