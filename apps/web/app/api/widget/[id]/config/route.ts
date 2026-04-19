@@ -61,6 +61,7 @@ export async function GET(
       launcherAnimation: assistant.launcherAnimation,
       launcherAccentColor: assistant.launcherAccentColor,
       launcherAnimationIntervalSec: assistant.launcherAnimationIntervalSec,
+      launcherIcon: assistant.launcherIcon,
       isActive: assistant.isActive,
       suggestedQuestions,
       featuredCards,

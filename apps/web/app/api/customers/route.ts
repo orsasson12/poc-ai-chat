@@ -18,6 +18,7 @@ const createCustomerSchema = z.object({
   launcherAnimation: z.enum(["none", "pulse", "bounce", "attention_flash"]).optional(),
   launcherAccentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   launcherAnimationIntervalSec: z.number().int().min(4).max(30).optional(),
+  launcherIcon: z.enum(["chat", "help", "sparkle", "bolt", "heart", "phone", "avatar"]).optional(),
 });
 
 export async function GET() {
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { businessName, greeting, tone, avatarUrl, widgetColor, launcherAnimation, launcherAccentColor, launcherAnimationIntervalSec } = parsed.data;
+  const { businessName, greeting, tone, avatarUrl, widgetColor, launcherAnimation, launcherAccentColor, launcherAnimationIntervalSec, launcherIcon } = parsed.data;
 
   const slug = businessName
     .toLowerCase()
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest) {
     if (launcherAnimation) updates.launcherAnimation = launcherAnimation;
     if (launcherAccentColor) updates.launcherAccentColor = launcherAccentColor;
     if (launcherAnimationIntervalSec !== undefined) updates.launcherAnimationIntervalSec = launcherAnimationIntervalSec;
+    if (launcherIcon) updates.launcherIcon = launcherIcon;
 
     if (Object.keys(updates).length > 0) {
       await queries.updateAssistant(assistant.id, tenant.id, updates);

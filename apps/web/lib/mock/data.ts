@@ -44,6 +44,7 @@ export const mockAssistant: Assistant = {
   launcherAnimation: "none",
   launcherAccentColor: null,
   launcherAnimationIntervalSec: 8,
+  launcherIcon: "chat",
   isActive: true,
   confidenceThreshold: 0.65,
   welcomeBanner: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=800&h=200&fit=crop",

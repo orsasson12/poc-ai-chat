@@ -21,6 +21,7 @@ const updateCustomerSchema = z.object({
   launcherAnimation: z.enum(["none", "pulse", "bounce", "attention_flash"]).optional(),
   launcherAccentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   launcherAnimationIntervalSec: z.number().int().min(4).max(30).optional(),
+  launcherIcon: z.enum(["chat", "help", "sparkle", "bolt", "heart", "phone", "avatar"]).optional(),
   welcomeBanner: z.string().max(2000).optional().or(z.literal("")),
   welcomeButtons: z
     .array(z.object({ id: z.string(), label: z.string().min(1).max(50), url: z.string().min(1) }))
@@ -95,7 +96,7 @@ export async function PUT(
     );
   }
 
-  const { name, plan, status, assistantName, greeting, tone, fallbackMsg, escalationEmail, avatarUrl, isActive, widgetColor, widgetPosition, launcherAnimation, launcherAccentColor, launcherAnimationIntervalSec, welcomeBanner, welcomeButtons } = parsed.data;
+  const { name, plan, status, assistantName, greeting, tone, fallbackMsg, escalationEmail, avatarUrl, isActive, widgetColor, widgetPosition, launcherAnimation, launcherAccentColor, launcherAnimationIntervalSec, launcherIcon, welcomeBanner, welcomeButtons } = parsed.data;
 
   // Update tenant fields
   const tenantUpdates: Record<string, string> = {};
@@ -123,6 +124,7 @@ export async function PUT(
     if (launcherAnimation) assistantUpdates.launcherAnimation = launcherAnimation;
     if (launcherAccentColor !== undefined) assistantUpdates.launcherAccentColor = launcherAccentColor;
     if (launcherAnimationIntervalSec !== undefined) assistantUpdates.launcherAnimationIntervalSec = launcherAnimationIntervalSec;
+    if (launcherIcon) assistantUpdates.launcherIcon = launcherIcon;
     if (welcomeBanner !== undefined) assistantUpdates.welcomeBanner = welcomeBanner || null;
     if (welcomeButtons !== undefined) assistantUpdates.welcomeButtons = welcomeButtons;
 

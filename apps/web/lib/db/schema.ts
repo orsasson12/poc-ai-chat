@@ -36,6 +36,9 @@ export const widgetPositionEnum = pgEnum("widget_position", ["bottom-right", "bo
 export const launcherAnimationEnum = pgEnum("launcher_animation", [
   "none", "pulse", "bounce", "attention_flash",
 ]);
+export const launcherIconEnum = pgEnum("launcher_icon", [
+  "chat", "help", "sparkle", "bolt", "heart", "phone", "avatar",
+]);
 export const escalationTriggerEnum = pgEnum("escalation_trigger", [
   "low_confidence", "explicit_request", "repeat_failure", "safety", "sentiment",
 ]);
@@ -119,6 +122,7 @@ export const assistants = pgTable(
     launcherAnimation: launcherAnimationEnum("launcher_animation").default("none").notNull(),
     launcherAccentColor: varchar("launcher_accent_color", { length: 7 }),
     launcherAnimationIntervalSec: integer("launcher_animation_interval_sec").default(8).notNull(),
+    launcherIcon: launcherIconEnum("launcher_icon").default("chat").notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     confidenceThreshold: numeric("confidence_threshold", { precision: 3, scale: 2 })
       .default("0.65")

@@ -58,7 +58,7 @@ import { IntegrationManager } from "@/components/dashboard/integration-manager";
 import { FreshnessPanel } from "@/components/dashboard/freshness-panel";
 import { formatPercentage, formatNumber } from "@/lib/utils";
 import type {
-  Assistant, KnowledgeItem, Tenant, WidgetPosition, LauncherAnimation,
+  Assistant, KnowledgeItem, Tenant, WidgetPosition, LauncherAnimation, LauncherIcon,
   DashboardMetrics, ConversationVolume, TopQuestion,
   SecurityEvent, CustomerStats, CardData, Message, SatisfactionScore, EscalationStatus, ChannelType,
 } from "@bizassist/types";
@@ -77,6 +77,25 @@ const LAUNCHER_MODE_OPTIONS: { value: LauncherAnimation; label: string; descript
   { value: "pulse", label: "Pulse", description: "Radiating ring" },
   { value: "bounce", label: "Bounce", description: "Subtle hop" },
   { value: "attention_flash", label: "Flash", description: "One-shot on load" },
+];
+
+const LAUNCHER_ICON_PATHS: Record<Exclude<LauncherIcon, "avatar">, string> = {
+  chat: "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z",
+  help: "M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z",
+  sparkle: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z",
+  bolt: "M7 2v11h3v9l7-12h-4l4-8z",
+  heart: "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z",
+  phone: "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z",
+};
+
+const LAUNCHER_ICON_OPTIONS: { value: LauncherIcon; label: string }[] = [
+  { value: "chat", label: "Chat" },
+  { value: "help", label: "Help" },
+  { value: "sparkle", label: "Sparkle" },
+  { value: "bolt", label: "Bolt" },
+  { value: "heart", label: "Heart" },
+  { value: "phone", label: "Phone" },
+  { value: "avatar", label: "Avatar" },
 ];
 
 interface SerializedConversation {
@@ -293,6 +312,7 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
   const [launcherAnimationIntervalSec, setLauncherAnimationIntervalSec] = useState<number>(
     assistant.launcherAnimationIntervalSec,
   );
+  const [launcherIcon, setLauncherIcon] = useState<LauncherIcon>(assistant.launcherIcon);
 
   function handleFileSelect(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -358,6 +378,10 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
     if (!Number.isNaN(n)) setLauncherAnimationIntervalSec(n);
   }
 
+  function handleLauncherIconChange(v: LauncherIcon) {
+    setLauncherIcon(v);
+  }
+
   function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     handleFileSelect(e.target.files);
   }
@@ -400,6 +424,7 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
           launcherAnimation,
           launcherAccentColor,
           launcherAnimationIntervalSec,
+          launcherIcon,
         }),
       });
 
@@ -433,6 +458,7 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
     launcherAnimation,
     launcherAccentColor,
     launcherAnimationIntervalSec,
+    launcherIcon,
     // Handlers
     handleNameChange,
     handleGreetingChange,
@@ -447,6 +473,7 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
     handleLauncherAccentColorChange,
     handleLauncherAccentColorClear,
     handleLauncherIntervalChange,
+    handleLauncherIconChange,
     handleFileInputChange,
     handleRemoveAvatar,
     handleRemoveAllAvatars,
@@ -481,6 +508,7 @@ function CustomerSettingsTab({
     launcherAnimation,
     launcherAccentColor,
     launcherAnimationIntervalSec,
+    launcherIcon,
     handleNameChange,
     handleGreetingChange,
     handleToneChange,
@@ -494,6 +522,7 @@ function CustomerSettingsTab({
     handleLauncherAccentColorChange,
     handleLauncherAccentColorClear,
     handleLauncherIntervalChange,
+    handleLauncherIconChange,
     handleFileInputChange,
     handleRemoveAvatar,
     handleRemoveAllAvatars,
@@ -629,6 +658,14 @@ function CustomerSettingsTab({
               </Select>
             </div>
 
+            <LauncherIconPanel
+              widgetColor={widgetColor}
+              launcherIcon={launcherIcon}
+              avatarUrl={avatarUrl}
+              assistantName={name}
+              onIconChange={handleLauncherIconChange}
+            />
+
             <LauncherCtaPanel
               widgetColor={widgetColor}
               launcherAnimation={launcherAnimation}
@@ -702,6 +739,120 @@ function CustomerSettingsTab({
         </Card>
       </div>
     </div>
+  );
+}
+
+// ---- Launcher Icon Panel ----
+
+interface LauncherIconPanelProps {
+  widgetColor: string;
+  launcherIcon: LauncherIcon;
+  avatarUrl: string;
+  assistantName: string;
+  onIconChange: (v: LauncherIcon) => void;
+}
+
+function LauncherIconPanel({
+  widgetColor,
+  launcherIcon,
+  avatarUrl,
+  assistantName,
+  onIconChange,
+}: LauncherIconPanelProps) {
+  const hasAvatar = avatarUrl.length > 0;
+
+  return (
+    <fieldset className="space-y-3 rounded-lg border p-4">
+      <legend className="px-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Launcher Icon
+      </legend>
+      <div
+        role="radiogroup"
+        aria-label="Launcher icon"
+        className="grid grid-cols-4 gap-2 sm:grid-cols-7"
+      >
+        {LAUNCHER_ICON_OPTIONS.map((opt) => (
+          <LauncherIconCard
+            key={opt.value}
+            option={opt}
+            selected={launcherIcon === opt.value}
+            disabled={opt.value === "avatar" && !hasAvatar}
+            widgetColor={widgetColor}
+            avatarUrl={avatarUrl}
+            assistantName={assistantName}
+            onSelect={onIconChange}
+          />
+        ))}
+      </div>
+      {!hasAvatar && (
+        <p className="text-xs text-muted-foreground">
+          Upload a widget avatar to enable the Avatar option.
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
+function LauncherIconCard({
+  option,
+  selected,
+  disabled,
+  widgetColor,
+  avatarUrl,
+  assistantName,
+  onSelect,
+}: {
+  option: { value: LauncherIcon; label: string };
+  selected: boolean;
+  disabled: boolean;
+  widgetColor: string;
+  avatarUrl: string;
+  assistantName: string;
+  onSelect: (v: LauncherIcon) => void;
+}) {
+  function handleClick() {
+    if (disabled) return;
+    onSelect(option.value);
+  }
+
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      aria-disabled={disabled}
+      disabled={disabled}
+      onClick={handleClick}
+      className={`flex flex-col items-center gap-1.5 rounded-lg border p-2 text-xs transition ${
+        disabled
+          ? "opacity-40 cursor-not-allowed"
+          : selected
+          ? "border-primary bg-primary/5 ring-1 ring-primary"
+          : "hover:bg-muted"
+      }`}
+    >
+      <div
+        className="flex size-10 items-center justify-center rounded-full overflow-hidden shadow-sm"
+        style={{ backgroundColor: widgetColor }}
+        aria-hidden="true"
+      >
+        {option.value === "avatar" ? (
+          avatarUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={avatarUrl} alt="" className="size-full object-cover" />
+          ) : (
+            <span className="text-xs font-bold text-white">
+              {assistantName[0] || "A"}
+            </span>
+          )
+        ) : (
+          <svg viewBox="0 0 24 24" className="size-5 fill-white">
+            <path d={LAUNCHER_ICON_PATHS[option.value as Exclude<LauncherIcon, "avatar">]} />
+          </svg>
+        )}
+      </div>
+      <span className="font-medium">{option.label}</span>
+    </button>
   );
 }
 

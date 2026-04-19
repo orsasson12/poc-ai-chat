@@ -373,6 +373,15 @@
   }
 
   // ---- Bubble (trigger button) ----
+  var ICON_PATHS = {
+    chat: "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z",
+    help: "M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z",
+    sparkle: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z",
+    bolt: "M7 2v11h3v9l7-12h-4l4-8z",
+    heart: "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z",
+    phone: "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
+  };
+
   function hexToRgba(hex, alpha) {
     if (!hex || typeof hex !== "string") return "rgba(0,0,0," + alpha + ")";
     var clean = hex.charAt(0) === "#" ? hex.slice(1) : hex;
@@ -406,7 +415,20 @@
     bubble.setAttribute("aria-label", "Open chat assistant");
     bubble.setAttribute("aria-haspopup", "dialog");
     bubble.setAttribute("aria-expanded", "false");
-    bubble.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>';
+
+    var iconChoice = (config && config.launcherIcon) || "chat";
+    if (iconChoice === "avatar" && config && config.avatarUrl) {
+      var img = document.createElement("img");
+      img.src = config.avatarUrl;
+      img.alt = "";
+      img.setAttribute("aria-hidden", "true");
+      img.style.cssText = "width:100%;height:100%;object-fit:cover;border-radius:50%;display:block";
+      bubble.appendChild(img);
+    } else {
+      var iconPath = ICON_PATHS[iconChoice] || ICON_PATHS.chat;
+      bubble.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="' + iconPath + '"/></svg>';
+    }
+
     bubble.addEventListener("click", toggleWidget);
     document.body.appendChild(bubble);
   }

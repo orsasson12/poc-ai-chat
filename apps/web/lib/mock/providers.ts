@@ -27,6 +27,7 @@ export function getMockWidgetConfig(): WidgetConfig {
     launcherAnimation: mockAssistant.launcherAnimation,
     launcherAccentColor: mockAssistant.launcherAccentColor,
     launcherAnimationIntervalSec: mockAssistant.launcherAnimationIntervalSec,
+    launcherIcon: mockAssistant.launcherIcon,
     isActive: mockAssistant.isActive,
     suggestedQuestions: [
       "What are your office hours?",
