@@ -58,10 +58,26 @@ import { IntegrationManager } from "@/components/dashboard/integration-manager";
 import { FreshnessPanel } from "@/components/dashboard/freshness-panel";
 import { formatPercentage, formatNumber } from "@/lib/utils";
 import type {
-  Assistant, KnowledgeItem, Tenant, WidgetPosition,
+  Assistant, KnowledgeItem, Tenant, WidgetPosition, LauncherAnimation,
   DashboardMetrics, ConversationVolume, TopQuestion,
   SecurityEvent, CustomerStats, CardData, Message, SatisfactionScore, EscalationStatus, ChannelType,
 } from "@bizassist/types";
+
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6) return `rgba(0,0,0,${alpha})`;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+const LAUNCHER_MODE_OPTIONS: { value: LauncherAnimation; label: string; description: string }[] = [
+  { value: "none", label: "None", description: "Static launcher" },
+  { value: "pulse", label: "Pulse", description: "Radiating ring" },
+  { value: "bounce", label: "Bounce", description: "Subtle hop" },
+  { value: "attention_flash", label: "Flash", description: "One-shot on load" },
+];
 
 interface SerializedConversation {
   id: string;
@@ -268,6 +284,15 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
   const [widgetPosition, setWidgetPosition] = useState<WidgetPosition>(
     assistant.widgetPosition,
   );
+  const [launcherAnimation, setLauncherAnimation] = useState<LauncherAnimation>(
+    assistant.launcherAnimation,
+  );
+  const [launcherAccentColor, setLauncherAccentColor] = useState<string | null>(
+    assistant.launcherAccentColor,
+  );
+  const [launcherAnimationIntervalSec, setLauncherAnimationIntervalSec] = useState<number>(
+    assistant.launcherAnimationIntervalSec,
+  );
 
   function handleFileSelect(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -315,6 +340,24 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
     if (v) setWidgetPosition(v as WidgetPosition);
   }
 
+  function handleLauncherAnimationChange(v: LauncherAnimation) {
+    setLauncherAnimation(v);
+  }
+
+  function handleLauncherAccentColorChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    setLauncherAccentColor(val === "" ? null : val);
+  }
+
+  function handleLauncherAccentColorClear() {
+    setLauncherAccentColor(null);
+  }
+
+  function handleLauncherIntervalChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const n = parseInt(e.target.value, 10);
+    if (!Number.isNaN(n)) setLauncherAnimationIntervalSec(n);
+  }
+
   function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     handleFileSelect(e.target.files);
   }
@@ -354,6 +397,9 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
           isActive,
           widgetColor,
           widgetPosition,
+          launcherAnimation,
+          launcherAccentColor,
+          launcherAnimationIntervalSec,
         }),
       });
 
@@ -384,6 +430,9 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
     isActive,
     widgetColor,
     widgetPosition,
+    launcherAnimation,
+    launcherAccentColor,
+    launcherAnimationIntervalSec,
     // Handlers
     handleNameChange,
     handleGreetingChange,
@@ -394,6 +443,10 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
     handleActiveChange,
     handleWidgetColorChange,
     handleWidgetPositionChange,
+    handleLauncherAnimationChange,
+    handleLauncherAccentColorChange,
+    handleLauncherAccentColorClear,
+    handleLauncherIntervalChange,
     handleFileInputChange,
     handleRemoveAvatar,
     handleRemoveAllAvatars,
@@ -425,6 +478,9 @@ function CustomerSettingsTab({
     isActive,
     widgetColor,
     widgetPosition,
+    launcherAnimation,
+    launcherAccentColor,
+    launcherAnimationIntervalSec,
     handleNameChange,
     handleGreetingChange,
     handleToneChange,
@@ -434,6 +490,10 @@ function CustomerSettingsTab({
     handleActiveChange,
     handleWidgetColorChange,
     handleWidgetPositionChange,
+    handleLauncherAnimationChange,
+    handleLauncherAccentColorChange,
+    handleLauncherAccentColorClear,
+    handleLauncherIntervalChange,
     handleFileInputChange,
     handleRemoveAvatar,
     handleRemoveAllAvatars,
@@ -568,6 +628,18 @@ function CustomerSettingsTab({
                 </SelectContent>
               </Select>
             </div>
+
+            <LauncherCtaPanel
+              widgetColor={widgetColor}
+              launcherAnimation={launcherAnimation}
+              launcherAccentColor={launcherAccentColor}
+              launcherAnimationIntervalSec={launcherAnimationIntervalSec}
+              onAnimationChange={handleLauncherAnimationChange}
+              onAccentColorChange={handleLauncherAccentColorChange}
+              onAccentColorClear={handleLauncherAccentColorClear}
+              onIntervalChange={handleLauncherIntervalChange}
+            />
+
             {/* Widget Avatar */}
             <div className="space-y-2">
               <Label>Widget Avatar</Label>
@@ -629,6 +701,221 @@ function CustomerSettingsTab({
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+// ---- Launcher CTA Panel ----
+
+interface LauncherCtaPanelProps {
+  widgetColor: string;
+  launcherAnimation: LauncherAnimation;
+  launcherAccentColor: string | null;
+  launcherAnimationIntervalSec: number;
+  onAnimationChange: (v: LauncherAnimation) => void;
+  onAccentColorChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onAccentColorClear: () => void;
+  onIntervalChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+function LauncherCtaPanel({
+  widgetColor,
+  launcherAnimation,
+  launcherAccentColor,
+  launcherAnimationIntervalSec,
+  onAnimationChange,
+  onAccentColorChange,
+  onAccentColorClear,
+  onIntervalChange,
+}: LauncherCtaPanelProps) {
+  const effectiveAccent = launcherAccentColor || hexToRgba(widgetColor, 0.4);
+  const isNone = launcherAnimation === "none";
+  const isFlash = launcherAnimation === "attention_flash";
+  const intervalDisabled = isNone || isFlash;
+
+  return (
+    <fieldset className="space-y-3 rounded-lg border p-4">
+      <legend className="px-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Launcher CTA
+      </legend>
+      <style>{`
+        @keyframes ba-dash-pulse {
+          0%   { transform: scale(1);   opacity: .5; }
+          70%  { transform: scale(1.6); opacity: 0;  }
+          100% { transform: scale(1.6); opacity: 0;  }
+        }
+        @keyframes ba-dash-bounce {
+          0%, 85%, 100% { transform: translateY(0); }
+          90%           { transform: translateY(-6px); }
+          95%           { transform: translateY(0); }
+        }
+      `}</style>
+
+      <div role="radiogroup" aria-label="Launcher animation mode" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {LAUNCHER_MODE_OPTIONS.map((mode) => {
+          const selected = launcherAnimation === mode.value;
+          return (
+            <LauncherModeCard
+              key={mode.value}
+              mode={mode}
+              selected={selected}
+              widgetColor={widgetColor}
+              accent={effectiveAccent}
+              intervalSec={launcherAnimationIntervalSec}
+              onSelect={onAnimationChange}
+            />
+          );
+        })}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="launcher-accent">Accent color (ring)</Label>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            id="launcher-accent"
+            value={launcherAccentColor ?? widgetColor}
+            onChange={onAccentColorChange}
+            disabled={isNone}
+            className="size-10 cursor-pointer rounded border border-input p-1 disabled:opacity-50"
+            aria-label="Accent color picker"
+          />
+          <Input
+            value={launcherAccentColor ?? ""}
+            onChange={onAccentColorChange}
+            placeholder={isNone ? "disabled" : `Auto (${widgetColor} @ 40%)`}
+            disabled={isNone}
+            maxLength={7}
+            className="flex-1 font-mono uppercase"
+            aria-label="Accent color hex"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onAccentColorClear}
+            disabled={isNone || launcherAccentColor === null}
+          >
+            Clear
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          When empty, the ring derives from your widget color at 40% opacity.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="launcher-interval">
+          Replay interval: <span className="font-mono">{launcherAnimationIntervalSec}s</span>
+        </Label>
+        <input
+          id="launcher-interval"
+          type="range"
+          min={4}
+          max={30}
+          step={1}
+          value={launcherAnimationIntervalSec}
+          onChange={onIntervalChange}
+          disabled={intervalDisabled}
+          className="w-full accent-primary disabled:opacity-50"
+          aria-label="Animation replay interval in seconds"
+        />
+        <p className="text-xs text-muted-foreground">
+          {intervalDisabled
+            ? "Interval only applies to Pulse and Bounce modes."
+            : "How often the animation replays (4-30s)."}
+        </p>
+      </div>
+    </fieldset>
+  );
+}
+
+function LauncherModeCard({
+  mode,
+  selected,
+  widgetColor,
+  accent,
+  intervalSec,
+  onSelect,
+}: {
+  mode: { value: LauncherAnimation; label: string; description: string };
+  selected: boolean;
+  widgetColor: string;
+  accent: string;
+  intervalSec: number;
+  onSelect: (v: LauncherAnimation) => void;
+}) {
+  function handleClick() {
+    onSelect(mode.value);
+  }
+
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={handleClick}
+      className={`flex flex-col items-center gap-2 rounded-lg border p-3 text-xs transition ${
+        selected
+          ? "border-primary bg-primary/5 ring-1 ring-primary"
+          : "hover:bg-muted"
+      }`}
+    >
+      <LauncherMiniPreview
+        mode={mode.value}
+        widgetColor={widgetColor}
+        accent={accent}
+        intervalSec={intervalSec}
+      />
+      <span className="font-medium">{mode.label}</span>
+      <span className="text-[10px] text-muted-foreground">{mode.description}</span>
+    </button>
+  );
+}
+
+function LauncherMiniPreview({
+  mode,
+  widgetColor,
+  accent,
+  intervalSec,
+}: {
+  mode: LauncherAnimation;
+  widgetColor: string;
+  accent: string;
+  intervalSec: number;
+}) {
+  const bubbleStyle: React.CSSProperties = { backgroundColor: widgetColor };
+  let ringStyle: React.CSSProperties | null = null;
+
+  if (mode === "pulse") {
+    ringStyle = {
+      backgroundColor: accent,
+      animation: `ba-dash-pulse ${intervalSec}s ease-out infinite`,
+    };
+  } else if (mode === "bounce") {
+    bubbleStyle.animation = `ba-dash-bounce ${intervalSec}s ease-in-out infinite`;
+  } else if (mode === "attention_flash") {
+    ringStyle = {
+      backgroundColor: accent,
+      animation: `ba-dash-pulse 1.5s ease-out 3`,
+    };
+    bubbleStyle.animation = `ba-dash-bounce 1.5s ease-in-out 3`;
+  }
+
+  return (
+    <div className="relative flex size-12 items-center justify-center">
+      {ringStyle && (
+        <div
+          className="absolute inset-[-4px] rounded-full"
+          style={ringStyle}
+          aria-hidden="true"
+        />
+      )}
+      <div
+        className="relative size-10 rounded-full shadow-sm"
+        style={bubbleStyle}
+        aria-hidden="true"
+      />
     </div>
   );
 }
