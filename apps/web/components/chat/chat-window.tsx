@@ -523,7 +523,39 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
     setTimeout(() => handleSend(lastUserMessageRef.current), 0);
   }, [handleSend]);
 
+  const handleRegenerate = useCallback(() => {
+    if (!lastUserMessageRef.current) return;
+    setMessages((prev) => {
+      if (prev.length < 2) return prev;
+      const last = prev[prev.length - 1];
+      const secondLast = prev[prev.length - 2];
+      if (
+        last.role === "assistant" &&
+        !last.isError &&
+        last.sender !== "agent" &&
+        last.sender !== "system" &&
+        secondLast.role === "user"
+      ) {
+        return prev.slice(0, -2);
+      }
+      return prev;
+    });
+    setTimeout(() => handleSend(lastUserMessageRef.current), 0);
+  }, [handleSend]);
+
   const hasUserMessages = messages.some((m) => m.role === "user");
+  const lastMessage = messages[messages.length - 1];
+  const prevMessage = messages[messages.length - 2];
+  const canRegenerateLast =
+    !isStreaming &&
+    !isWaiting &&
+    !isEscalated &&
+    Boolean(lastUserMessageRef.current) &&
+    lastMessage?.role === "assistant" &&
+    !lastMessage?.isError &&
+    lastMessage?.sender !== "agent" &&
+    lastMessage?.sender !== "system" &&
+    prevMessage?.role === "user";
 
   const createSuggestedQuestionHandler = useCallback(
     (question: string) => () => handleSend(question),
@@ -607,6 +639,7 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
                 lowConfidence={msg.lowConfidence}
                 onFeedback={handleFeedback}
                 onRetry={handleRetry}
+                onRegenerate={msg.id === lastMessage?.id && canRegenerateLast ? handleRegenerate : undefined}
               />
             )}
           </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { ThumbsUp, ThumbsDown, RotateCcw, ChevronDown, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
+import { Check, ChevronDown, Copy, ExternalLink, RefreshCw, RotateCcw, ThumbsDown, ThumbsUp } from "lucide-react";
 import { ContentCard } from "@/components/chat/content-card";
 import type { CardData } from "@bizassist/types";
 
@@ -57,6 +58,7 @@ interface MessageBubbleProps {
   lowConfidence?: boolean;
   onFeedback?: (messageId: string, feedback: "positive" | "negative") => void;
   onRetry?: () => void;
+  onRegenerate?: () => void;
 }
 
 type ContentSegment =
@@ -103,8 +105,15 @@ export function MessageBubble({
   lowConfidence,
   onFeedback,
   onRetry,
+  onRegenerate,
 }: MessageBubbleProps) {
   const [feedback, setFeedback] = useState<"positive" | "negative" | null>(initialFeedback ?? null);
+  const [justCopied, setJustCopied] = useState(false);
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
+  }, []);
 
   const handleFeedback = (type: "positive" | "negative") => {
     if (feedback || !messageId || !onFeedback) return;
@@ -114,6 +123,23 @@ export function MessageBubble({
 
   const handlePositiveFeedback = () => handleFeedback("positive");
   const handleNegativeFeedback = () => handleFeedback("negative");
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setJustCopied(true);
+      if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = setTimeout(() => setJustCopied(false), 2000);
+      toast.success("Copied to clipboard");
+    } catch {
+      toast.error("Couldn't copy — try again");
+    }
+  };
+
+  const showActions = role === "assistant" && !isStreaming && !isError;
+  const showFeedback = showActions && Boolean(messageId) && Boolean(onFeedback);
+  const showCopy = showActions;
+  const showRegenerate = showActions && Boolean(onRegenerate);
 
   return (
     <div
@@ -190,41 +216,69 @@ export function MessageBubble({
           </details>
         )}
 
-        {/* Feedback buttons (WCAG: 44px targets, ARIA pressed state) */}
-        {role === "assistant" && messageId && onFeedback && !isStreaming && !isError && (
-          <div className="mt-1.5 flex items-center gap-1 border-t border-border/40 pt-1.5" role="group" aria-label="Rate this response">
-            <button
-              type="button"
-              onClick={handlePositiveFeedback}
-              disabled={feedback !== null}
-              aria-label="Good response"
-              aria-pressed={feedback === "positive"}
-              className={`rounded p-2 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
-                feedback === "positive"
-                  ? "text-green-600"
-                  : feedback === null
-                    ? "text-muted-foreground hover:text-green-600"
-                    : "text-muted-foreground/30"
-              }`}
-            >
-              <ThumbsUp className="size-4" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={handleNegativeFeedback}
-              disabled={feedback !== null}
-              aria-label="Bad response"
-              aria-pressed={feedback === "negative"}
-              className={`rounded p-2 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
-                feedback === "negative"
-                  ? "text-red-600"
-                  : feedback === null
-                    ? "text-muted-foreground hover:text-red-600"
-                    : "text-muted-foreground/30"
-              }`}
-            >
-              <ThumbsDown className="size-4" aria-hidden="true" />
-            </button>
+        {/* Action row: feedback (rate), copy, regenerate. All WCAG 44px targets. */}
+        {showActions && (showFeedback || showCopy || showRegenerate) && (
+          <div className="mt-1.5 flex items-center gap-1 border-t border-border/40 pt-1.5" role="group" aria-label="Message actions">
+            {showFeedback && (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePositiveFeedback}
+                  disabled={feedback !== null}
+                  aria-label="Good response"
+                  aria-pressed={feedback === "positive"}
+                  className={`rounded p-2 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
+                    feedback === "positive"
+                      ? "text-green-600"
+                      : feedback === null
+                        ? "text-muted-foreground hover:text-green-600"
+                        : "text-muted-foreground/30"
+                  }`}
+                >
+                  <ThumbsUp className="size-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNegativeFeedback}
+                  disabled={feedback !== null}
+                  aria-label="Bad response"
+                  aria-pressed={feedback === "negative"}
+                  className={`rounded p-2 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
+                    feedback === "negative"
+                      ? "text-red-600"
+                      : feedback === null
+                        ? "text-muted-foreground hover:text-red-600"
+                        : "text-muted-foreground/30"
+                  }`}
+                >
+                  <ThumbsDown className="size-4" aria-hidden="true" />
+                </button>
+              </>
+            )}
+            {showCopy && (
+              <button
+                type="button"
+                onClick={handleCopy}
+                aria-label={justCopied ? "Message copied" : "Copy message"}
+                className="rounded p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+              >
+                {justCopied ? (
+                  <Check className="size-4 text-green-600" aria-hidden="true" />
+                ) : (
+                  <Copy className="size-4" aria-hidden="true" />
+                )}
+              </button>
+            )}
+            {showRegenerate && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                aria-label="Regenerate response"
+                className="rounded p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground transition-colors motion-reduce:transition-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+              >
+                <RefreshCw className="size-4" aria-hidden="true" />
+              </button>
+            )}
           </div>
         )}
 
