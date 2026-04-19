@@ -333,12 +333,24 @@
       ".ba-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}",
       // Animation
       "@keyframes ba-slide-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}",
+      // Launcher CTA — pulse mode (radiating ring via ::after)
+      ".ba-bubble--pulse{position:relative}",
+      ".ba-bubble--pulse::after{content:\"\";position:absolute;inset:-4px;border-radius:50%;background:var(--ba-accent,rgba(0,0,0,0));animation:ba-pulse var(--ba-interval,8s) ease-out infinite;pointer-events:none;z-index:-1}",
+      "@keyframes ba-pulse{0%{transform:scale(1);opacity:.5}70%{transform:scale(1.6);opacity:0}100%{transform:scale(1.6);opacity:0}}",
+      // Launcher CTA — bounce mode
+      ".ba-bubble--bounce{animation:ba-bounce-loop var(--ba-interval,8s) ease-in-out infinite}",
+      "@keyframes ba-bounce-loop{0%,85%,100%{transform:translateY(0)}90%{transform:translateY(-6px)}95%{transform:translateY(0)}}",
+      // Launcher CTA — attention-flash (one-shot on load, 3 iterations)
+      ".ba-bubble--flash{position:relative;animation:ba-bounce-loop 1.5s ease-in-out 3}",
+      ".ba-bubble--flash::after{content:\"\";position:absolute;inset:-4px;border-radius:50%;background:var(--ba-accent,rgba(0,0,0,0));animation:ba-pulse 1.5s ease-out 3;pointer-events:none;z-index:-1}",
+      // Pause all launcher animation while the proactive popup is visible
+      ".ba-bubble[data-proactive-open=\"true\"].ba-bubble--pulse::after,.ba-bubble[data-proactive-open=\"true\"].ba-bubble--bounce,.ba-bubble[data-proactive-open=\"true\"].ba-bubble--flash,.ba-bubble[data-proactive-open=\"true\"].ba-bubble--flash::after{animation-play-state:paused}",
       // Mobile: full screen
       // Mobile: bottom-sheet with margin on both sides so the host page is
       // still partially visible and the bubble stays reachable below.
       "@media(max-width:480px){.ba-container{width:auto;left:12px;right:12px;bottom:88px;height:calc(100vh - 108px);max-height:calc(100vh - 108px);border-radius:16px}}",
-      // Reduced motion
-      "@media(prefers-reduced-motion:reduce){.ba-bubble,.ba-proactive,.ba-proactive-close{transition:none;animation:none}.ba-bubble:hover{transform:none}}",
+      // Reduced motion — cancels all bubble + launcher CTA animation
+      "@media(prefers-reduced-motion:reduce){.ba-bubble,.ba-proactive,.ba-proactive-close{transition:none;animation:none}.ba-bubble:hover{transform:none}.ba-bubble--pulse::after,.ba-bubble--flash::after{animation:none}}",
     ].join("\n");
     document.head.appendChild(style);
   }
@@ -361,11 +373,36 @@
   }
 
   // ---- Bubble (trigger button) ----
-  function createBubble(color) {
+  function hexToRgba(hex, alpha) {
+    if (!hex || typeof hex !== "string") return "rgba(0,0,0," + alpha + ")";
+    var clean = hex.charAt(0) === "#" ? hex.slice(1) : hex;
+    if (clean.length !== 6) return "rgba(0,0,0," + alpha + ")";
+    var r = parseInt(clean.slice(0, 2), 16);
+    var g = parseInt(clean.slice(2, 4), 16);
+    var b = parseInt(clean.slice(4, 6), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return "rgba(0,0,0," + alpha + ")";
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+  }
+
+  function createBubble(config) {
+    var color = (config && config.widgetColor) || "#2563eb";
+    var mode = (config && config.launcherAnimation) || "none";
+    var interval = (config && config.launcherAnimationIntervalSec) || 8;
+    var accent = (config && config.launcherAccentColor) || hexToRgba(color, 0.4);
+
+    var animClass = {
+      pulse: "ba-bubble--pulse",
+      bounce: "ba-bubble--bounce",
+      attention_flash: "ba-bubble--flash",
+    }[mode] || "";
+
     bubble = document.createElement("button");
-    bubble.className = "ba-bubble";
+    bubble.className = animClass ? "ba-bubble " + animClass : "ba-bubble";
     bubble.type = "button";
-    bubble.style.backgroundColor = color || "#2563eb";
+    bubble.style.backgroundColor = color;
+    bubble.style.setProperty("--ba-accent", accent);
+    bubble.style.setProperty("--ba-interval", interval + "s");
+    bubble.dataset.proactiveOpen = "false";
     bubble.setAttribute("aria-label", "Open chat assistant");
     bubble.setAttribute("aria-haspopup", "dialog");
     bubble.setAttribute("aria-expanded", "false");
@@ -645,6 +682,9 @@
 
     document.body.appendChild(proactiveBubble);
 
+    // Pause the launcher CTA animation so it doesn't fight with the popup.
+    if (bubble) bubble.dataset.proactiveOpen = "true";
+
     // Announce to screen readers
     announce("Chat assistant says: " + message);
 
@@ -661,6 +701,7 @@
       proactiveBubble.remove();
       proactiveBubble = null;
     }
+    if (bubble) bubble.dataset.proactiveOpen = "false";
   }
 
   // Visitor clicked a qualifying-question chip in the proactive bubble:
@@ -788,7 +829,7 @@
 
         createStyles();
         createLiveRegion();
-        createBubble(config.widgetColor);
+        createBubble(config);
         createContainer();
 
         if (config.widgetPosition === "bottom-left") {
