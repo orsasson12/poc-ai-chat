@@ -294,16 +294,16 @@
 
     style.textContent = [
       // Bubble: 56x56 meets 44x44 minimum touch target (WCAG 2.5.5)
-      ".ba-bubble{position:fixed;bottom:20px;right:20px;width:56px;height:56px;border-radius:50%;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;z-index:999998;transition:" + transition + ";border:none;padding:0}",
+      ".ba-bubble{position:fixed!important;bottom:20px!important;right:20px!important;top:auto!important;left:auto!important;width:56px;height:56px;border-radius:50%;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;z-index:2147483646!important;transition:" + transition + ";border:none;padding:0;margin:0}",
       // Focus indicator: 2px solid outline with offset (WCAG 2.4.7)
       ".ba-bubble:focus-visible{outline:3px solid #005fcc;outline-offset:3px}",
       ".ba-bubble:hover{transform:" + (prefersReducedMotion ? "none" : "scale(1.1)") + "}",
       ".ba-bubble svg{width:24px;height:24px;fill:white}",
       // Container with role=dialog
-      ".ba-container{position:fixed;bottom:88px;right:20px;width:380px;height:600px;max-height:calc(100vh - 100px);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:999999;display:none;background:white}",
+      ".ba-container{position:fixed!important;bottom:88px!important;right:20px!important;top:auto!important;left:auto!important;width:380px;height:600px;max-height:calc(100vh - 100px);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:2147483647!important;display:none;background:white;margin:0}",
       ".ba-container iframe{width:100%;height:100%;border:none}",
       // Proactive bubble
-      ".ba-proactive{position:fixed;bottom:84px;right:20px;max-width:280px;padding:12px 16px;border-radius:12px 12px 4px 12px;background:white;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:999997;font:14px/1.4 system-ui,sans-serif;color:#1a1a1a;cursor:pointer;animation:" + animation + "}",
+      ".ba-proactive{position:fixed!important;bottom:84px!important;right:20px!important;top:auto!important;left:auto!important;max-width:280px;padding:12px 16px;border-radius:12px 12px 4px 12px;background:white;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:2147483645!important;font:14px/1.4 system-ui,sans-serif;color:#1a1a1a;cursor:pointer;animation:" + animation + ";margin:0}",
       // Close button: 44x44 touch target
       ".ba-proactive-close{position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;font-size:18px;color:#666;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}",
       ".ba-proactive-close:focus-visible{outline:3px solid #005fcc;outline-offset:-2px;border-radius:4px}",
