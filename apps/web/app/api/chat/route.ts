@@ -11,6 +11,10 @@ import { optimizeHistory } from "@/lib/llm/summarize";
 import * as queries from "@/lib/db/queries";
 import { logger } from "@/lib/observability";
 import { classifyError } from "@/lib/observability/scrub";
+import { runSafetyPipeline } from "@/lib/safety";
+import { stripPii } from "@/lib/safety/pii";
+import { generateCanaryToken, validateOutput } from "@/lib/safety/canary";
+import { logSecurityEvent } from "@/lib/safety/log-event";
 import type { CardData } from "@bizassist/types";
 
 const chatRequestSchema = z.object({
@@ -26,6 +30,46 @@ const chatRequestSchema = z.object({
   // the rule that opened the chat.
   engagementRuleId: z.string().uuid().optional(),
 });
+
+type HistoryEntry = { role: "user" | "assistant"; content: string };
+
+// History is sent by the client and cannot be trusted. Cheap PII regex on each
+// entry balances safety with latency — full injection+moderation on 20 items
+// would be prohibitively slow.
+function sanitizeHistory(history: HistoryEntry[]): HistoryEntry[] {
+  return history.map((h) => (h.role === "user" ? { ...h, content: stripPii(h.content).cleanedMessage } : h));
+}
+
+function buildFallbackStream(fallbackMsg: string, blockedReason?: string): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: fallbackMsg })}\n\n`));
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({
+            meta: {
+              messageId: null,
+              confidence: 0,
+              sources: [],
+              cards: {},
+              blocked: blockedReason ? true : undefined,
+            },
+          })}\n\n`,
+        ),
+      );
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}
 
 export async function POST(request: NextRequest) {
   const startedAt = Date.now();
@@ -89,6 +133,53 @@ export async function POST(request: NextRequest) {
     hasHistory: (history?.length ?? 0) > 0,
   });
 
+  // -------- SAFETY (Layers 1-3: injection / moderation / PII) --------
+  const safetyTenantId = tenantId ?? "mock";
+  const safety = await runSafetyPipeline(message);
+
+  // Persist every event the pipeline produced. `pii_detected` is non-blocking
+  // but still audited; blocking events are persisted + then we short-circuit.
+  for (const evt of safety.events) {
+    if (!evt.eventType) continue;
+    await logSecurityEvent({
+      tenantId: safetyTenantId,
+      conversationId,
+      eventType: evt.eventType,
+      severity: evt.severity ?? "medium",
+      score: evt.score ?? null,
+      inputText: message,
+      blocked: Boolean(evt.blocked),
+      stage: "input",
+    });
+  }
+
+  if (!safety.passed) {
+    const fallbackMsg = assistant?.fallbackMsg ?? "I can only help with questions about this business. What would you like to know?";
+    if (hasDatabase() && tenantId && conversationId) {
+      try {
+        await queries.createMessage({
+          conversationId,
+          tenantId,
+          role: "assistant",
+          content: fallbackMsg,
+          isFallback: true,
+        });
+      } catch (err) {
+        logger.error(err, { tenantId, conversationId, stage: "save_blocked_fallback" });
+      }
+    }
+    logger.event("chat.request.blocked", {
+      tenantId: safetyTenantId,
+      conversationId,
+      reason: safety.events[0]?.eventType ?? "unknown",
+      durationMs: Date.now() - startedAt,
+    });
+    return buildFallbackStream(fallbackMsg, safety.events[0]?.eventType ?? "blocked");
+  }
+
+  const cleanedMessage = safety.cleanedMessage;
+  const sanitizedHistory = sanitizeHistory(history ?? []);
+
   // Try real AI, fall back to mock
   if (hasAnthropic() && assistant && tenant && tenantId) {
     try {
@@ -97,8 +188,8 @@ export async function POST(request: NextRequest) {
         tenant,
         tenantId,
         conversationId,
-        message,
-        history: history ?? [],
+        message: cleanedMessage,
+        history: sanitizedHistory,
         startedAt,
       });
     } catch (err) {
@@ -275,6 +366,7 @@ async function streamClaudeResponse(opts: {
 }) {
   const { assistant, tenant, tenantId, conversationId, message, history, startedAt } = opts;
   const startTime = Date.now();
+  const canary = generateCanaryToken(tenantId);
 
   // Retrieve relevant chunks (semantic search or fallback)
   let chunks: ResolvedChunk[] = [];
@@ -324,6 +416,7 @@ async function streamClaudeResponse(opts: {
   const encoder = new TextEncoder();
   let fullResponse = "";
   let firstTokenMs: number | null = null;
+  let canaryLeaked = false;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -351,10 +444,59 @@ async function streamClaudeResponse(opts: {
               });
             }
             fullResponse += text;
+
+            // Layer 4 — live canary leak detection. If Claude echoes the
+            // tenant-specific HMAC, it means the system prompt leaked; abort
+            // the stream immediately and replace with a fallback.
+            if (fullResponse.includes(canary)) {
+              canaryLeaked = true;
+              await logSecurityEvent({
+                tenantId,
+                conversationId,
+                eventType: "canary_leak",
+                severity: "critical",
+                score: 1,
+                inputText: fullResponse,
+                blocked: true,
+                stage: "output",
+              });
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ meta: { replaced: true, fallback: assistant.fallbackMsg, messageId: null, confidence: 0, sources: [], cards: {} } })}\n\n`,
+                ),
+              );
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+              return;
+            }
+
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ token: text })}\n\n`),
             );
           }
+        }
+
+        // Post-generation output validation (Layer 4 — system prompt phrases + length)
+        const outputValidation = validateOutput(fullResponse, tenantId);
+        if (!outputValidation.passed) {
+          await logSecurityEvent({
+            tenantId,
+            conversationId,
+            eventType: outputValidation.reason === "canary_leak" ? "canary_leak" : "scope_violation",
+            severity: "high",
+            score: 1,
+            inputText: fullResponse,
+            blocked: true,
+            stage: "output",
+          });
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ meta: { replaced: true, fallback: assistant.fallbackMsg, messageId: null, confidence: 0, sources: [], cards: {} } })}\n\n`,
+            ),
+          );
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+          return;
         }
 
         const latencyMs = Date.now() - startTime;
@@ -412,6 +554,7 @@ async function streamClaudeResponse(opts: {
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       } catch (err) {
+        if (canaryLeaked) return; // already closed
         logger.error(err, { tenantId, conversationId, stage: "claude_stream" });
         logger.event("chat.request.failed", {
           tenantId,

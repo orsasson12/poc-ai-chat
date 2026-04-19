@@ -347,7 +347,7 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
       const decoder = new TextDecoder();
       let accumulated = "";
       let buffer = "";
-      let meta: { messageId?: string; sources?: Source[]; cards?: Record<string, CardData> } = {};
+      let meta: { messageId?: string; sources?: Source[]; cards?: Record<string, CardData>; replaced?: boolean; fallback?: string } = {};
 
       while (true) {
         const { done, value } = await reader.read();
@@ -368,6 +368,23 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
             // Meta event (sent before [DONE])
             if (parsed.meta) {
               meta = parsed.meta;
+
+              // Output-validation replacement: the server detected a canary
+              // leak or scope violation mid/post-stream. Discard accumulated
+              // tokens and render the fallback message instead.
+              if (meta.replaced && meta.fallback) {
+                const fallbackText = meta.fallback;
+                accumulated = fallbackText;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, content: fallbackText, sources: [], cards: {}, messageId: null }
+                      : m,
+                  ),
+                );
+                continue;
+              }
+
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantMsgId

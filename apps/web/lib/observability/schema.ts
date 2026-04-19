@@ -45,6 +45,40 @@ export type EventFields = {
     errKind: string;
     ua: string;
   };
+  "safety.blocked": {
+    tenantId: string;
+    conversationId: string | null;
+    eventType: "prompt_injection" | "content_moderation" | "pii_detected" | "canary_leak" | "scope_violation";
+    severity: "low" | "medium" | "high" | "critical";
+    score: number | null;
+    stage: "input" | "output";
+  };
+  "safety.pii_detected": {
+    tenantId: string;
+    conversationId: string | null;
+    score: number | null;
+  };
+  "safety.canary_leak": {
+    tenantId: string;
+    conversationId: string | null;
+    responseLen: number;
+  };
+  "safety.scope_violation": {
+    tenantId: string;
+    conversationId: string | null;
+    reason: string;
+    responseLen: number;
+  };
+  "safety.moderation_unavailable": {
+    tenantId: string | null;
+    errKind: string;
+  };
+  "chat.request.blocked": {
+    tenantId: string;
+    conversationId: string | null;
+    reason: string;
+    durationMs: number;
+  };
 };
 
 export type EventName = keyof EventFields;
