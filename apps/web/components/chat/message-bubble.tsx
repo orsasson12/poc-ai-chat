@@ -125,13 +125,43 @@ export function MessageBubble({
   const handleNegativeFeedback = () => handleFeedback("negative");
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(content);
+    const plain = content.replace(/\[CARD:[\w-]+\]/g, "").trim();
+    const markCopied = () => {
       setJustCopied(true);
       if (copyResetTimerRef.current) clearTimeout(copyResetTimerRef.current);
       copyResetTimerRef.current = setTimeout(() => setJustCopied(false), 2000);
       toast.success("Copied to clipboard");
+    };
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(plain);
+        markCopied();
+        return;
+      }
+      throw new Error("clipboard-unavailable");
     } catch {
+      // Fallback for insecure contexts / iframes without clipboard-write
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = plain;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "0";
+        ta.style.left = "0";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, plain.length);
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (ok) {
+          markCopied();
+          return;
+        }
+      } catch {
+        // fall through to error toast
+      }
       toast.error("Couldn't copy — try again");
     }
   };

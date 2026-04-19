@@ -463,7 +463,7 @@
     iframe = document.createElement("iframe");
     iframe.src = src;
     iframe.setAttribute("title", "Chat assistant conversation");
-    iframe.setAttribute("allow", "microphone");
+    iframe.setAttribute("allow", "microphone; clipboard-write");
     // Allow iframe content to be accessible
     iframe.setAttribute("tabindex", "0");
     container.appendChild(iframe);
