@@ -15,6 +15,9 @@ const createCustomerSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
     .optional(),
+  launcherAnimation: z.enum(["none", "pulse", "bounce", "attention_flash"]).optional(),
+  launcherAccentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  launcherAnimationIntervalSec: z.number().int().min(4).max(30).optional(),
 });
 
 export async function GET() {
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { businessName, greeting, tone, avatarUrl, widgetColor } = parsed.data;
+  const { businessName, greeting, tone, avatarUrl, widgetColor, launcherAnimation, launcherAccentColor, launcherAnimationIntervalSec } = parsed.data;
 
   const slug = businessName
     .toLowerCase()
@@ -71,11 +74,14 @@ export async function POST(request: NextRequest) {
     );
 
     // Update assistant with custom settings if provided
-    const updates: Record<string, string | boolean | null> = {};
+    const updates: Record<string, string | number | boolean | null> = {};
     if (greeting) updates.greeting = greeting;
     if (tone) updates.tone = tone;
     if (avatarUrl) updates.avatarUrl = avatarUrl;
     if (widgetColor) updates.widgetColor = widgetColor;
+    if (launcherAnimation) updates.launcherAnimation = launcherAnimation;
+    if (launcherAccentColor) updates.launcherAccentColor = launcherAccentColor;
+    if (launcherAnimationIntervalSec !== undefined) updates.launcherAnimationIntervalSec = launcherAnimationIntervalSec;
 
     if (Object.keys(updates).length > 0) {
       await queries.updateAssistant(assistant.id, tenant.id, updates);
