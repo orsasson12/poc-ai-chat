@@ -15,7 +15,9 @@ import { logger } from "@/lib/observability";
 import { classifyError } from "@/lib/observability/scrub";
 import { runSafetyPipeline } from "@/lib/safety";
 import { stripPii } from "@/lib/safety/pii";
-import { generateCanaryToken, validateOutput } from "@/lib/safety/canary";
+import { generateCanaryToken } from "@/lib/safety/canary";
+import { validateResponse } from "@/lib/rag/validate";
+import { stripUnknownCardMarkers } from "@/lib/rag/cards";
 import { logSecurityEvent } from "@/lib/safety/log-event";
 import type { CardData } from "@bizassist/types";
 
@@ -534,8 +536,17 @@ async function streamClaudeResponse(opts: {
           }
         }
 
-        // Post-generation output validation (Layer 4 — system prompt phrases + length)
-        const outputValidation = validateOutput(fullResponse, tenantId);
+        // Post-generation output validation (Layer 4 — canary + ungrounded check).
+        // Short greetings/vague inputs legitimately retrieve zero chunks and the
+        // system prompt asks the LLM to give a friendly intro, so we only apply
+        // the grounded-response check once the user's message is substantial.
+        const applyGroundedCheck = chunks.length === 0 && message.length > 20;
+        const outputValidation = validateResponse(
+          fullResponse,
+          tenantId,
+          applyGroundedCheck,
+          assistant.fallbackMsg,
+        );
         if (!outputValidation.passed) {
           await logSecurityEvent({
             tenantId,
@@ -557,11 +568,29 @@ async function streamClaudeResponse(opts: {
           return;
         }
 
+        // Strip hallucinated [CARD:id] markers (ids the LLM invented) before
+        // persisting and before computing the used-cards set. Frontend also drops
+        // unknown markers defensively; stripping server-side keeps the DB clean
+        // so history reloads don't reintroduce stale markers.
+        const knownCardIds = Object.keys(cards);
+        const { cleaned: cleanedResponse, strippedCount } = stripUnknownCardMarkers(
+          fullResponse,
+          knownCardIds,
+        );
+        if (strippedCount > 0) {
+          logger.event("chat.response.cards_stripped", {
+            tenantId,
+            conversationId,
+            strippedCount,
+            responseLen: cleanedResponse.length,
+          });
+        }
+
         const latencyMs = Date.now() - startTime;
         const isFallback =
           chunks.length === 0 ||
           confidence < assistant.confidenceThreshold ||
-          fullResponse.includes(assistant.fallbackMsg);
+          cleanedResponse.includes(assistant.fallbackMsg);
 
         // Save assistant message to DB before sending meta + DONE
         let savedMessageId: string | null = null;
@@ -574,7 +603,7 @@ async function streamClaudeResponse(opts: {
             conversationId,
             tenantId,
             role: "assistant",
-            content: fullResponse,
+            content: cleanedResponse,
             confidence: confidence.toFixed(3),
             latencyMs,
             isFallback,
@@ -583,18 +612,25 @@ async function streamClaudeResponse(opts: {
           savedMessageId = saved.id;
         }
 
+        // Flag borderline retrieval so the UI can show an advisory note. Empty
+        // chunks and explicit fallback text already communicate uncertainty via
+        // the response itself, so we only surface the signal for responses that
+        // did use retrieved context but under the configured threshold.
+        const lowConfidence =
+          !isFallback && chunks.length > 0 && confidence < assistant.confidenceThreshold;
+
         // Send meta event with messageId, confidence, sources, and cards
         // Only include cards that the LLM actually referenced in its response
         const usedCards: Record<string, CardData> = {};
         for (const [id, card] of Object.entries(cards)) {
-          if (fullResponse.includes(`[CARD:${id}]`)) {
+          if (cleanedResponse.includes(`[CARD:${id}]`)) {
             usedCards[id] = card;
           }
         }
 
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ meta: { messageId: savedMessageId, confidence, sources, cards: usedCards } })}\n\n`,
+            `data: ${JSON.stringify({ meta: { messageId: savedMessageId, confidence, sources, cards: usedCards, lowConfidence } })}\n\n`,
           ),
         );
 

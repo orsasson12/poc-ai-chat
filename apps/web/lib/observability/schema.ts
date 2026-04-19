@@ -102,6 +102,12 @@ export type EventFields = {
     topScoreBefore: number;
     topScoreAfter: number;
   };
+  "chat.response.cards_stripped": {
+    tenantId: string | null;
+    conversationId: string | null;
+    strippedCount: number;
+    responseLen: number;
+  };
 };
 
 export type EventName = keyof EventFields;

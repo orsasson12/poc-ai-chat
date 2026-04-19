@@ -54,6 +54,7 @@ interface MessageBubbleProps {
   cards?: Record<string, CardData>;
   feedback?: "positive" | "negative" | null;
   isError?: boolean;
+  lowConfidence?: boolean;
   onFeedback?: (messageId: string, feedback: "positive" | "negative") => void;
   onRetry?: () => void;
 }
@@ -99,6 +100,7 @@ export function MessageBubble({
   cards,
   feedback: initialFeedback,
   isError,
+  lowConfidence,
   onFeedback,
   onRetry,
 }: MessageBubbleProps) {
@@ -131,9 +133,9 @@ export function MessageBubble({
             {content}
             <span className="animate-pulse motion-reduce:animate-none" aria-hidden="true">&#9647;</span>
           </p>
-        ) : cards && Object.keys(cards).length > 0 ? (
+        ) : role === "assistant" ? (
           <div>
-            {parseContentWithCards(content, cards).map((seg) =>
+            {parseContentWithCards(content, cards ?? {}).map((seg) =>
               seg.type === "text" ? (
                 <div key={seg.key}>
                   <ReactMarkdown components={markdownComponents}>{seg.text}</ReactMarkdown>
@@ -143,10 +145,20 @@ export function MessageBubble({
               ),
             )}
           </div>
-        ) : role === "assistant" ? (
-          <ReactMarkdown components={markdownComponents}>{content}</ReactMarkdown>
         ) : (
           <p className="whitespace-pre-wrap">{content}</p>
+        )}
+
+        {/* Low-confidence advisory — shown when retrieval scored below the
+            assistant's threshold but we still produced a non-fallback answer.
+            Gives the user a soft hint to verify, without blocking the response. */}
+        {role === "assistant" && lowConfidence && !isStreaming && !isError && (
+          <p
+            role="note"
+            className="mt-1.5 border-t border-border/40 pt-1.5 text-[11px] italic text-muted-foreground"
+          >
+            I&apos;m not fully sure about this &mdash; please double-check important details with our team.
+          </p>
         )}
 
         {/* Source attribution */}

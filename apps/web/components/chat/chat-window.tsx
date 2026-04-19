@@ -20,6 +20,7 @@ interface ChatMessage {
   cards?: Record<string, CardData>;
   feedback?: "positive" | "negative" | null;
   isError?: boolean;
+  lowConfidence?: boolean;
   sender?: "bot" | "agent" | "customer" | "system";
 }
 
@@ -347,7 +348,7 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
       const decoder = new TextDecoder();
       let accumulated = "";
       let buffer = "";
-      let meta: { messageId?: string; sources?: Source[]; cards?: Record<string, CardData>; replaced?: boolean; fallback?: string } = {};
+      let meta: { messageId?: string; sources?: Source[]; cards?: Record<string, CardData>; replaced?: boolean; fallback?: string; lowConfidence?: boolean } = {};
 
       while (true) {
         const { done, value } = await reader.read();
@@ -388,7 +389,13 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantMsgId
-                    ? { ...m, messageId: meta.messageId ?? null, sources: meta.sources ?? [], cards: meta.cards ?? {} }
+                    ? {
+                        ...m,
+                        messageId: meta.messageId ?? null,
+                        sources: meta.sources ?? [],
+                        cards: meta.cards ?? {},
+                        lowConfidence: meta.lowConfidence ?? false,
+                      }
                     : m,
                 ),
               );
@@ -597,6 +604,7 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
                 cards={msg.cards}
                 feedback={msg.feedback}
                 isError={msg.isError}
+                lowConfidence={msg.lowConfidence}
                 onFeedback={handleFeedback}
                 onRetry={handleRetry}
               />
