@@ -79,6 +79,29 @@ export type EventFields = {
     reason: string;
     durationMs: number;
   };
+  "rag.rewrite.completed": {
+    tenantId: string;
+    conversationId: string | null;
+    originalLen: number;
+    rewrittenLen: number;
+    changed: boolean;
+    durationMs: number;
+  };
+  "rag.rewrite.skipped": {
+    tenantId: string;
+    conversationId: string | null;
+    reason: "disabled" | "no_anthropic" | "timeout" | "error" | "empty_result" | "too_long";
+    durationMs: number;
+  };
+  "rag.rerank.applied": {
+    tenantId: string;
+    conversationId: string | null;
+    candidateCount: number;
+    keptCount: number;
+    freshnessAppliedCount: number;
+    topScoreBefore: number;
+    topScoreAfter: number;
+  };
 };
 
 export type EventName = keyof EventFields;

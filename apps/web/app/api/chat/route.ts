@@ -7,6 +7,8 @@ import { buildSystemPrompt } from "@/lib/llm/prompts";
 import { formatKnowledgeForLLM } from "@/lib/knowledge/format";
 import { embedQuery } from "@/lib/rag/embed";
 import { retrieveChunks } from "@/lib/rag/retrieve";
+import { rewriteQuery } from "@/lib/rag/rewrite";
+import { scoreChunk } from "@/lib/rag/freshness";
 import { optimizeHistory } from "@/lib/llm/summarize";
 import * as queries from "@/lib/db/queries";
 import { logger } from "@/lib/observability";
@@ -272,6 +274,8 @@ async function resolveChunks(
   message: string,
   tenantId: string,
   confidenceThreshold: number,
+  history: HistoryEntry[],
+  conversationId: string | null,
 ): Promise<{ chunks: ResolvedChunk[]; chunksUsed: string[]; confidence: number; cards: Record<string, CardData> }> {
   // Helper to build cards map from knowledge items
   function buildCards(items: { id: string; title: string; type: string; sourceUrl: string | null; metadata?: unknown }[]): Record<string, CardData> {
@@ -295,8 +299,27 @@ async function resolveChunks(
   // Try semantic search first
   if (hasPinecone() && hasOpenAI()) {
     try {
-      const queryEmbedding = await embedQuery(message);
-      const retrieved = await retrieveChunks(queryEmbedding, tenantId, confidenceThreshold, 5);
+      const rewrite = await rewriteQuery({ message, history, tenantId });
+      if (rewrite.usedRewriter) {
+        logger.event("rag.rewrite.completed", {
+          tenantId,
+          conversationId,
+          originalLen: message.length,
+          rewrittenLen: rewrite.rewritten.length,
+          changed: rewrite.changed,
+          durationMs: rewrite.durationMs,
+        });
+      } else if (rewrite.skippedReason) {
+        logger.event("rag.rewrite.skipped", {
+          tenantId,
+          conversationId,
+          reason: rewrite.skippedReason,
+          durationMs: rewrite.durationMs,
+        });
+      }
+
+      const queryEmbedding = await embedQuery(rewrite.rewritten);
+      const retrieved = await retrieveChunks(queryEmbedding, tenantId, confidenceThreshold, 10);
 
       if (retrieved.length > 0) {
         // Look up sourceUrls from knowledge items
@@ -304,20 +327,55 @@ async function resolveChunks(
         const items = itemIds.length > 0 ? await queries.getKnowledgeItemsByIds(itemIds, tenantId) : [];
         const itemMap = new Map(items.map((i) => [i.id, i]));
 
-        const chunks = retrieved.map((c) => ({
+        const now = Date.now();
+        const topScoreBefore = retrieved[0]?.score ?? 0;
+        let freshnessAppliedCount = 0;
+
+        const scored = retrieved.map((c) => {
+          const item = itemMap.get(c.knowledgeItemId);
+          // Prefer lastRefreshedAt when present; fall back to createdAt. The shared
+          // query currently backfills lastRefreshedAt to null, so createdAt drives
+          // freshness in practice — still a meaningful signal.
+          const ref = item?.lastRefreshedAt ?? item?.createdAt ?? null;
+          const { finalScore, hasDate } = scoreChunk(c.score, ref, now);
+          if (hasDate) freshnessAppliedCount += 1;
+          return {
+            content: c.content,
+            heading: c.heading,
+            sourceUrl: item?.sourceUrl ?? null,
+            score: finalScore,
+            knowledgeItemId: c.knowledgeItemId,
+            isStructured: item?.type === "structured",
+            pineconeId: c.id,
+          };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+        const kept = scored.slice(0, 5);
+
+        logger.event("rag.rerank.applied", {
+          tenantId,
+          conversationId,
+          candidateCount: retrieved.length,
+          keptCount: kept.length,
+          freshnessAppliedCount,
+          topScoreBefore,
+          topScoreAfter: kept[0]?.score ?? 0,
+        });
+
+        const chunks: ResolvedChunk[] = kept.map((c) => ({
           content: c.content,
           heading: c.heading,
-          sourceUrl: itemMap.get(c.knowledgeItemId)?.sourceUrl ?? null,
+          sourceUrl: c.sourceUrl,
           score: c.score,
           knowledgeItemId: c.knowledgeItemId,
-          isStructured: itemMap.get(c.knowledgeItemId)?.type === "structured",
+          isStructured: c.isStructured,
         }));
-
         const confidence = chunks.reduce((sum, c) => sum + c.score, 0) / chunks.length;
 
         return {
           chunks,
-          chunksUsed: retrieved.map((c) => c.id),
+          chunksUsed: kept.map((c) => c.pineconeId),
           confidence,
           cards: buildCards(items),
         };
@@ -374,7 +432,7 @@ async function streamClaudeResponse(opts: {
   let confidence = 0;
   let cards: Record<string, CardData> = {};
   try {
-    const result = await resolveChunks(message, tenantId, assistant.confidenceThreshold);
+    const result = await resolveChunks(message, tenantId, assistant.confidenceThreshold, history, conversationId);
     chunks = result.chunks;
     chunksUsed = result.chunksUsed;
     confidence = result.confidence;

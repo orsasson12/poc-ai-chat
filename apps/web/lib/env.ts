@@ -21,6 +21,9 @@ export const env = {
   axiomToken: process.env.AXIOM_TOKEN ?? "",
   axiomDataset: process.env.AXIOM_DATASET ?? "",
   axiomOrgId: process.env.AXIOM_ORG_ID ?? "",
+  ragQueryRewriteEnabled: (process.env.RAG_QUERY_REWRITE_ENABLED ?? "false").toLowerCase() === "true",
+  ragFreshnessHalfLifeDays: Number(process.env.RAG_FRESHNESS_HALF_LIFE_DAYS ?? "180"),
+  ragFreshnessFloor: Number(process.env.RAG_FRESHNESS_FLOOR ?? "0.6"),
 } as const;
 
 export const hasDatabase = () => !!env.databaseUrl;
