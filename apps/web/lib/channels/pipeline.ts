@@ -16,6 +16,7 @@ import { hasDatabase, hasAnthropic, hasPinecone, hasOpenAI } from "@/lib/env";
 import { mockChatResponse } from "@/lib/mock/providers";
 import * as queries from "@/lib/db/queries";
 import { buildSystemPrompt } from "@/lib/llm/prompts";
+import { MODELS } from "@/lib/llm/models";
 import { formatKnowledgeForLLM } from "@/lib/knowledge/format";
 import { formatForChannel } from "./format-response";
 
@@ -149,7 +150,7 @@ export async function processChannelMessage(
   if (!anthropic) return mockResult(channel);
 
   const response = await anthropic.messages.create({
-    model: "claude-4-sonnet-20250514",
+    model: MODELS.primary,
     max_tokens: 1024,
     system: systemPrompt,
     messages: [{ role: "user", content: text }],

@@ -46,7 +46,9 @@
       "Bash(git ls-tree:*)",
       "Bash(supabase --version)",
       "Bash(npx -y supabase --version)",
-      "Bash(node --check C:/Users/orsas/OneDrive/Desktop/poc-ai-chat/apps/web/public/widget.js)"
+      "Bash(node --check C:/Users/orsas/OneDrive/Desktop/poc-ai-chat/apps/web/public/widget.js)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(xargs wc *)"
     ]
   }
 }

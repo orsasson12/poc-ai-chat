@@ -3,6 +3,7 @@
  */
 
 import type Anthropic from "@anthropic-ai/sdk";
+import { MODELS } from "@/lib/llm/models";
 
 const RECENT_WINDOW = 6;
 const SUMMARIZE_THRESHOLD = 10;
@@ -48,7 +49,7 @@ async function summarizeMessages(
         .join("\n");
 
       const response = await anthropic.messages.create({
-        model: "claude-4-sonnet-20250514",
+        model: MODELS.summarize,
         max_tokens: 200,
         system: "Summarize this conversation excerpt in 2-3 sentences. Capture the key topics discussed and any established context. Be concise.",
         messages: [{ role: "user", content: transcript }],

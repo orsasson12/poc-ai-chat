@@ -3,6 +3,7 @@ import { z } from "zod";
 import { hasDatabase, hasAnthropic, hasPinecone, hasOpenAI } from "@/lib/env";
 import { mockChatResponse, getMockCards } from "@/lib/mock/providers";
 import { getAnthropicClient } from "@/lib/llm/providers";
+import { MODELS } from "@/lib/llm/models";
 import { buildSystemPrompt } from "@/lib/llm/prompts";
 import { formatKnowledgeForLLM } from "@/lib/knowledge/format";
 import { embedQuery } from "@/lib/rag/embed";
@@ -482,7 +483,7 @@ async function streamClaudeResponse(opts: {
     async start(controller) {
       try {
         const response = await anthropic.messages.create({
-          model: "claude-4-sonnet-20250514",
+          model: MODELS.primary,
           max_tokens: 1024,
           system: systemPrompt,
           messages,

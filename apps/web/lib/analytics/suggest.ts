@@ -3,11 +3,12 @@ import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 import { hasAnthropic, hasDatabase, hasOpenAI, hasPinecone } from "@/lib/env";
 import { getAnthropicClient } from "@/lib/llm/providers";
+import { MODELS } from "@/lib/llm/models";
 import { embedQuery } from "@/lib/rag/embed";
 import { retrieveChunks } from "@/lib/rag/retrieve";
 
-const LABEL_MODEL = "claude-4-sonnet-20250514";
-const SUGGEST_MODEL = "claude-4-sonnet-20250514";
+const LABEL_MODEL = MODELS.labeling;
+const SUGGEST_MODEL = MODELS.primary;
 
 /**
  * Generate a short 4-6 word topic label from one or more clustered questions.

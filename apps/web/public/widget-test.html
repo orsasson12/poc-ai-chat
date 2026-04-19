@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>BizAssist widget smoke test</title>
+    <style>
+      body { font: 16px/1.5 system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+      code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Launcher smoke test</h1>
+    <p>
+      Replace <code>REPLACE_WITH_ASSISTANT_ID</code> in the script tag below
+      with the UUID of an assistant whose <em>Launcher CTA</em> is set to
+      Pulse / Bounce / Flash. You should see an animated bubble bottom-right.
+    </p>
+    <p>
+      If the bubble is static, hard-refresh (Ctrl+Shift+R) and check the
+      Network tab: <code>widget.js</code> should return a 200 with
+      <code>ba-bubble--pulse</code> in the body, and
+      <code>/api/widget/&lt;id&gt;/config</code> should include
+      <code>launcherAnimation</code> in the JSON.
+    </p>
+    <script
+      src="/widget.js"
+      data-assistant-id="REPLACE_WITH_ASSISTANT_ID"
+      async
+    ></script>
+  </body>
+</html>
