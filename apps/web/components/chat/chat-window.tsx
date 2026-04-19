@@ -277,6 +277,25 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isWaiting]);
 
+  // Re-anchor scroll to bottom when the mobile soft keyboard opens/closes.
+  // visualViewport.resize fires on keyboard show; we only re-anchor when the
+  // user was already near the bottom, so scrolled-up history reading isn't
+  // disturbed. No-op on desktop (keyboard resize doesn't fire).
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!vv) return;
+    const handleViewportResize = () => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distanceFromBottom < 80) {
+        el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
+      }
+    };
+    vv.addEventListener("resize", handleViewportResize);
+    return () => vv.removeEventListener("resize", handleViewportResize);
+  }, []);
+
   const handleSend = useCallback(async (content: string) => {
     // Persist session. Respects cookieless mode — sessionStorage when enabled.
     writeStoredSession(SESSION_KEY_PREFIX + assistantId, sessionIdRef.current, cookielessMode);
@@ -565,7 +584,7 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
   return (
     <div className="flex h-full flex-col" role="application" aria-label={`Chat with ${assistantName}`}>
       {/* Header landmark */}
-      <header className="flex items-center gap-3 border-b px-4 py-3" style={{ backgroundColor: widgetColor }}>
+      <header className="flex items-center gap-3 border-b px-4 py-3" style={{ backgroundColor: widgetColor, paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
         {avatarUrl ? (
           <img
             src={avatarUrl}
@@ -602,7 +621,7 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
         </p>
       )}
       {/* Message area — ARIA log role for chat history */}
-      <div ref={scrollRef} className="flex-1 overflow-auto p-4 space-y-3" role="log" aria-label="Conversation messages" aria-live="polite" aria-relevant="additions">
+      <div ref={scrollRef} className="flex-1 overflow-auto overscroll-contain p-4 space-y-3" role="log" aria-label="Conversation messages" aria-live="polite" aria-relevant="additions">
         {welcomeBanner && !hasUserMessages && (
           <img
             src={welcomeBanner}

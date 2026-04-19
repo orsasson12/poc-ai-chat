@@ -1,9 +1,19 @@
+import type { Viewport } from "next";
 import { ChatWindow } from "@/components/chat/chat-window";
 import { hasDatabase } from "@/lib/env";
 import * as queries from "@/lib/db/queries";
 import { mockAssistant, mockKnowledgeItems, mockTopQuestions } from "@/lib/mock/data";
 import { extractSuggestedQuestions } from "@/lib/knowledge/suggested-questions";
 import type { CardData } from "@bizassist/types";
+
+// Opt this route into edge-to-edge safe-area handling so env(safe-area-inset-*)
+// resolves to real notch/home-indicator insets on iOS. Scoped to the chat page
+// so dashboard layout is unaffected.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 interface ChatPageProps {
   params: Promise<{ id: string }>;
@@ -75,7 +85,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
   const resolved = assistant ?? mockAssistant;
 
   return (
-    <div className="h-screen w-full">
+    <div className="h-dvh w-full">
       <ChatWindow
         assistantId={resolved.id}
         assistantName={resolved.name}

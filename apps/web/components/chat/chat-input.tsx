@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -9,9 +9,26 @@ interface ChatInputProps {
   disabled?: boolean;
 }
 
+const MAX_AUTO_GROW_ROWS = 5;
+
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [message, setMessage] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Resize the textarea to fit its content, capped at MAX_AUTO_GROW_ROWS.
+  // Reads computed line-height at call time so it stays correct across themes.
+  const resizeTextarea = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
+    const maxHeight = lineHeight * MAX_AUTO_GROW_ROWS;
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  }, []);
+
+  useEffect(() => {
+    resizeTextarea();
+  }, [message, resizeTextarea]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +50,13 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t p-4" role="form" aria-label="Send a message">
+    <form
+      onSubmit={handleSubmit}
+      className="flex items-end gap-2 border-t px-4 pt-4"
+      role="form"
+      aria-label="Send a message"
+      style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+    >
       <textarea
         ref={inputRef}
         value={message}
@@ -42,7 +65,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         placeholder="Type your message..."
         rows={1}
         disabled={disabled}
-        className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 disabled:opacity-50 min-h-[44px]"
+        className="flex-1 resize-none rounded-lg border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 disabled:opacity-50 min-h-[44px] max-h-[140px] overflow-y-auto"
         aria-label="Type your message. Press Enter to send, Shift+Enter for new line."
         aria-disabled={disabled}
       />
