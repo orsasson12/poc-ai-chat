@@ -284,7 +284,7 @@
   }
 
   // ---- UI Elements ----
-  var bubble, iframe, container, proactiveBubble, liveRegion, launcherChips;
+  var bubble, iframe, container, proactiveBubble, liveRegion;
 
   // ---- Styles (WCAG compliant) ----
   function createStyles() {
@@ -327,13 +327,6 @@
       ".ba-proactive-question{display:block;width:100%;padding:8px 12px;background:#f3f4f6;color:#1a1a1a;border:1px solid #e5e7eb;border-radius:8px;font:inherit;font-size:13px;text-align:left;cursor:pointer;min-height:36px;box-sizing:border-box;transition:background .15s ease}",
       ".ba-proactive-question:hover{background:#e5e7eb}",
       ".ba-proactive-question:focus-visible{outline:3px solid #005fcc;outline-offset:2px}",
-      // Launcher chips — stacked vertically just above the bubble.
-      ".ba-launcher-chips{position:fixed!important;bottom:88px!important;right:20px!important;top:auto!important;left:auto!important;display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:280px;z-index:2147483645!important;margin:0;pointer-events:none}",
-      ".ba-launcher-chips--left{right:auto!important;left:20px!important;align-items:flex-start}",
-      ".ba-launcher-chip{pointer-events:auto;padding:8px 14px;background:white;color:#1a1a1a;border:1px solid #e5e7eb;border-radius:18px;font:13px/1.3 system-ui,sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08);min-height:36px;box-sizing:border-box;text-align:left;max-width:100%;white-space:normal;transition:background .15s ease,transform .15s ease}",
-      ".ba-launcher-chip:hover{background:#f3f4f6;transform:" + (prefersReducedMotion ? "none" : "translateY(-1px)") + "}",
-      ".ba-launcher-chip:focus-visible{outline:3px solid #005fcc;outline-offset:2px}",
-      ".ba-launcher-chips[hidden]{display:none!important}",
       // Screen reader only utility
       ".ba-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}",
       // Live region (hidden but announced)
@@ -438,68 +431,6 @@
 
     bubble.addEventListener("click", toggleWidget);
     document.body.appendChild(bubble);
-
-    createLauncherChips(config);
-  }
-
-  // Render starter-question chips alongside the launcher. Hidden automatically
-  // while the chat is open so they don't overlap the iframe container.
-  function createLauncherChips(config) {
-    var questions = config && Array.isArray(config.suggestedQuestions) ? config.suggestedQuestions : [];
-    if (questions.length === 0) return;
-
-    launcherChips = document.createElement("div");
-    launcherChips.className = "ba-launcher-chips";
-    if (config && config.widgetPosition === "bottom-left") {
-      launcherChips.className += " ba-launcher-chips--left";
-    }
-    launcherChips.setAttribute("role", "group");
-    launcherChips.setAttribute("aria-label", "Suggested questions");
-
-    var max = Math.min(questions.length, 5);
-    for (var i = 0; i < max; i++) {
-      var text = questions[i];
-      if (!text || typeof text !== "string") continue;
-      var chip = document.createElement("button");
-      chip.className = "ba-launcher-chip";
-      chip.type = "button";
-      chip.textContent = text;
-      (function (captured) {
-        chip.addEventListener("click", function (e) {
-          e.stopPropagation();
-          handleLauncherChipClick(captured);
-        });
-      })(text);
-      launcherChips.appendChild(chip);
-    }
-
-    document.body.appendChild(launcherChips);
-  }
-
-  // Visitor clicked a launcher chip: open the chat and seed the clicked text
-  // as the first user message. Mirrors handleQuestionClick (the proactive-bubble
-  // equivalent) but without an engagement rule — these chips aren't rule-backed.
-  function handleLauncherChipClick(questionText) {
-    var wasLoaded = state.iframeLoaded;
-    if (!wasLoaded) {
-      loadIframe({ autoSend: questionText });
-    }
-    openWidget();
-    if (wasLoaded && iframe && iframe.contentWindow) {
-      iframe.contentWindow.postMessage({
-        type: "ba:proactive_engage",
-        payload: {
-          autoSendMessage: questionText,
-          signals: getSignals(),
-        },
-      }, origin);
-    }
-  }
-
-  function setLauncherChipsVisible(visible) {
-    if (!launcherChips) return;
-    if (visible) launcherChips.removeAttribute("hidden");
-    else launcherChips.setAttribute("hidden", "");
   }
 
   // ---- Container (dialog) ----
@@ -551,7 +482,6 @@
     state.widgetOpen = true;
     bubble.setAttribute("aria-expanded", "true");
     hideProactiveMessage();
-    setLauncherChipsVisible(false);
 
     // Move focus into the iframe after a brief delay for load
     setTimeout(function () {
@@ -573,7 +503,6 @@
     container.style.display = "none";
     state.widgetOpen = false;
     bubble.setAttribute("aria-expanded", "false");
-    setLauncherChipsVisible(true);
 
     document.removeEventListener("keydown", onWidgetKeydown);
 
