@@ -82,6 +82,8 @@ export interface Assistant {
   welcomeBanner: string | null;
   welcomeButtons: WelcomeButton[];
   cookielessMode: boolean;
+  suggestedQuestionsMode: "manual" | "auto";
+  suggestedQuestions: string[];
   createdAt: Date;
 }
 

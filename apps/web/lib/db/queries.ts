@@ -211,7 +211,7 @@ export async function getAssistantById(id: string): Promise<Assistant | null> {
 export async function updateAssistant(
   id: string,
   tenantId: string,
-  data: Partial<Pick<typeof s.assistants.$inferInsert, "name" | "greeting" | "tone" | "fallbackMsg" | "escalationEmail" | "avatarUrl" | "isActive" | "widgetColor" | "widgetPosition" | "welcomeBanner" | "welcomeButtons">>,
+  data: Partial<Pick<typeof s.assistants.$inferInsert, "name" | "greeting" | "tone" | "fallbackMsg" | "escalationEmail" | "avatarUrl" | "isActive" | "widgetColor" | "widgetPosition" | "welcomeBanner" | "welcomeButtons" | "suggestedQuestionsMode" | "suggestedQuestions">>,
 ) {
   const d = db();
   await d
@@ -672,6 +672,36 @@ export async function getTopQuestions(tenantId: string): Promise<TopQuestion[]> 
     .limit(10);
 
   return rows;
+}
+
+// Returns the most common *first* user message per conversation, scoped to
+// one assistant. Powers the launcher suggested-question chips in auto mode:
+// each conversation contributes exactly one vote (its opening message), so
+// the result reflects what visitors actually ask first, not total mentions.
+export async function getTopFirstUserMessages(
+  tenantId: string,
+  assistantId: string,
+  limit = 5,
+): Promise<{ question: string; count: number }[]> {
+  const d = db();
+  const rows = await d.execute<{ question: string; count: number }>(sql`
+    WITH firsts AS (
+      SELECT DISTINCT ON (m.conversation_id) m.content
+      FROM messages m
+      INNER JOIN conversations c ON m.conversation_id = c.id
+      WHERE c.tenant_id = ${tenantId}
+        AND c.assistant_id = ${assistantId}
+        AND m.role = 'user'
+      ORDER BY m.conversation_id, m.created_at ASC
+    )
+    SELECT content AS question, COUNT(*)::int AS count
+    FROM firsts
+    GROUP BY content
+    ORDER BY count DESC, question ASC
+    LIMIT ${limit}
+  `);
+
+  return rows.map((r) => ({ question: r.question, count: Number(r.count) }));
 }
 
 // ---- Customer Stats ----

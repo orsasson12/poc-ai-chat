@@ -54,6 +54,8 @@ export const mockAssistant: Assistant = {
     { id: "wb_3", label: "Contact Us", url: "https://smiledental.com/contact" },
   ],
   cookielessMode: false,
+  suggestedQuestionsMode: "auto",
+  suggestedQuestions: [],
   createdAt: new Date("2026-01-15"),
 };
 

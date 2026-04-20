@@ -27,6 +27,8 @@ const updateCustomerSchema = z.object({
     .array(z.object({ id: z.string(), label: z.string().min(1).max(50), url: z.string().min(1) }))
     .max(5)
     .optional(),
+  suggestedQuestionsMode: z.enum(["manual", "auto"]).optional(),
+  suggestedQuestions: z.array(z.string().trim().min(1).max(140)).max(5).optional(),
 });
 
 export async function GET(
@@ -86,7 +88,12 @@ export async function PUT(
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = updateCustomerSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -96,7 +103,7 @@ export async function PUT(
     );
   }
 
-  const { name, plan, status, assistantName, greeting, tone, fallbackMsg, escalationEmail, avatarUrl, isActive, widgetColor, widgetPosition, launcherAnimation, launcherAccentColor, launcherAnimationIntervalSec, launcherIcon, welcomeBanner, welcomeButtons } = parsed.data;
+  const { name, plan, status, assistantName, greeting, tone, fallbackMsg, escalationEmail, avatarUrl, isActive, widgetColor, widgetPosition, launcherAnimation, launcherAccentColor, launcherAnimationIntervalSec, launcherIcon, welcomeBanner, welcomeButtons, suggestedQuestionsMode, suggestedQuestions } = parsed.data;
 
   // Update tenant fields
   const tenantUpdates: Record<string, string> = {};
@@ -111,7 +118,7 @@ export async function PUT(
   // Update assistant fields
   const assistant = await queries.getAssistantForTenant(id);
   if (assistant) {
-    const assistantUpdates: Record<string, string | number | boolean | null | { id: string; label: string; url: string }[]> = {};
+    const assistantUpdates: Record<string, string | number | boolean | null | string[] | { id: string; label: string; url: string }[]> = {};
     if (assistantName) assistantUpdates.name = assistantName;
     if (greeting) assistantUpdates.greeting = greeting;
     if (tone) assistantUpdates.tone = tone;
@@ -127,6 +134,8 @@ export async function PUT(
     if (launcherIcon) assistantUpdates.launcherIcon = launcherIcon;
     if (welcomeBanner !== undefined) assistantUpdates.welcomeBanner = welcomeBanner || null;
     if (welcomeButtons !== undefined) assistantUpdates.welcomeButtons = welcomeButtons;
+    if (suggestedQuestionsMode) assistantUpdates.suggestedQuestionsMode = suggestedQuestionsMode;
+    if (suggestedQuestions !== undefined) assistantUpdates.suggestedQuestions = suggestedQuestions;
 
     if (Object.keys(assistantUpdates).length > 0) {
       await queries.updateAssistant(assistant.id, id, assistantUpdates);

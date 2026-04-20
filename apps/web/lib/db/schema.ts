@@ -75,6 +75,9 @@ export const changeSeverityEnum = pgEnum("change_severity", [
 export const changeApprovalEnum = pgEnum("change_approval", [
   "pending", "approved", "rejected", "auto_approved",
 ]);
+export const suggestedQuestionsModeEnum = pgEnum("suggested_questions_mode", [
+  "manual", "auto",
+]);
 
 // ---- Tables ----
 export const tenants = pgTable("tenants", {
@@ -132,6 +135,12 @@ export const assistants = pgTable(
     // When true, the widget uses sessionStorage-only and skips any persistent storage so
     // the embedding site doesn't need prior cookie consent for the chatbot to function.
     cookielessMode: boolean("cookieless_mode").default(false).notNull(),
+    // Launcher-bubble question chips. "auto" = derived from conversation history
+    // on each widget-config fetch. "manual" = use suggestedQuestions verbatim.
+    suggestedQuestionsMode: suggestedQuestionsModeEnum("suggested_questions_mode")
+      .default("auto")
+      .notNull(),
+    suggestedQuestions: text("suggested_questions").array().default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index("assistants_tenant_id_idx").on(table.tenantId)]

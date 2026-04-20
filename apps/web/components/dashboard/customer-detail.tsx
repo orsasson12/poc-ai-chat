@@ -63,6 +63,12 @@ import type {
   SecurityEvent, CustomerStats, CardData, Message, SatisfactionScore, EscalationStatus, ChannelType,
 } from "@bizassist/types";
 
+function padTo5(arr: string[]): string[] {
+  const out = arr.slice(0, 5);
+  while (out.length < 5) out.push("");
+  return out;
+}
+
 function hexToRgba(hex: string, alpha: number): string {
   const clean = hex.replace("#", "");
   if (clean.length !== 6) return `rgba(0,0,0,${alpha})`;
@@ -313,6 +319,24 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
     assistant.launcherAnimationIntervalSec,
   );
   const [launcherIcon, setLauncherIcon] = useState<LauncherIcon>(assistant.launcherIcon);
+  const [suggestedMode, setSuggestedMode] = useState<"manual" | "auto">(
+    assistant.suggestedQuestionsMode,
+  );
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>(() =>
+    padTo5(assistant.suggestedQuestions),
+  );
+
+  function handleSuggestedModeChange(v: string | null) {
+    if (v === "manual" || v === "auto") setSuggestedMode(v);
+  }
+
+  function handleSuggestedQuestionChange(index: number, value: string) {
+    setSuggestedQuestions((prev) => {
+      const next = prev.slice();
+      next[index] = value;
+      return next;
+    });
+  }
 
   function handleFileSelect(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -425,6 +449,11 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
           launcherAccentColor,
           launcherAnimationIntervalSec,
           launcherIcon,
+          suggestedQuestionsMode: suggestedMode,
+          suggestedQuestions:
+            suggestedMode === "manual"
+              ? suggestedQuestions.map((q) => q.trim()).filter(Boolean).slice(0, 5)
+              : [],
         }),
       });
 
@@ -459,7 +488,11 @@ function useCustomerSettingsForm(tenant: Tenant, assistant: Assistant) {
     launcherAccentColor,
     launcherAnimationIntervalSec,
     launcherIcon,
+    suggestedMode,
+    suggestedQuestions,
     // Handlers
+    handleSuggestedModeChange,
+    handleSuggestedQuestionChange,
     handleNameChange,
     handleGreetingChange,
     handleToneChange,
@@ -509,6 +542,10 @@ function CustomerSettingsTab({
     launcherAccentColor,
     launcherAnimationIntervalSec,
     launcherIcon,
+    suggestedMode,
+    suggestedQuestions,
+    handleSuggestedModeChange,
+    handleSuggestedQuestionChange,
     handleNameChange,
     handleGreetingChange,
     handleToneChange,
@@ -632,6 +669,13 @@ function CustomerSettingsTab({
             </div>
           </CardContent>
         </Card>
+
+        <SuggestedQuestionsPanel
+          mode={suggestedMode}
+          questions={suggestedQuestions}
+          onModeChange={handleSuggestedModeChange}
+          onQuestionChange={handleSuggestedQuestionChange}
+        />
       </div>
 
       <div className="space-y-6">
@@ -741,6 +785,109 @@ function CustomerSettingsTab({
     </div>
   );
 }
+
+// ---- Suggested Questions Panel ----
+
+interface SuggestedQuestionsPanelProps {
+  mode: "manual" | "auto";
+  questions: string[];
+  onModeChange: (v: string | null) => void;
+  onQuestionChange: (index: number, value: string) => void;
+}
+
+function SuggestedQuestionsPanel({
+  mode,
+  questions,
+  onModeChange,
+  onQuestionChange,
+}: SuggestedQuestionsPanelProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Launcher Suggested Questions</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="cust-suggested-mode">Source</Label>
+          <Select value={mode} onValueChange={onModeChange}>
+            <SelectTrigger id="cust-suggested-mode" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">Auto — top questions from history</SelectItem>
+              <SelectItem value="manual">Manual — I&apos;ll write them</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {mode === "auto" ? (
+          <p className="text-xs text-muted-foreground">
+            We&apos;ll show the top 5 most-asked questions from your conversation history. Updates automatically.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <Label>Questions (up to 5)</Label>
+            <SuggestedQuestionInputs questions={questions} onQuestionChange={onQuestionChange} />
+            <p className="text-xs text-muted-foreground">
+              Shown as chips on the launcher bubble. Clicking one opens the chat and auto-sends the question.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SuggestedQuestionInputs({
+  questions,
+  onQuestionChange,
+}: {
+  questions: string[];
+  onQuestionChange: (index: number, value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {questions.map((q, i) => (
+        <SuggestedQuestionInput
+          key={`sq-${i}`}
+          index={i}
+          value={q}
+          onQuestionChange={onQuestionChange}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SuggestedQuestionInput({
+  index,
+  value,
+  onQuestionChange,
+}: {
+  index: number;
+  value: string;
+  onQuestionChange: (index: number, value: string) => void;
+}) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    onQuestionChange(index, e.target.value);
+  }
+  return (
+    <Input
+      value={value}
+      onChange={handleChange}
+      maxLength={140}
+      placeholder={`e.g. ${PLACEHOLDER_SUGGESTED_QUESTIONS[index] ?? "Ask a question..."}`}
+    />
+  );
+}
+
+const PLACEHOLDER_SUGGESTED_QUESTIONS = [
+  "What are your store hours?",
+  "How do I track my order?",
+  "What is your return policy?",
+  "Do you ship internationally?",
+  "How can I contact support?",
+];
 
 // ---- Launcher Icon Panel ----
 

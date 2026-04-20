@@ -26,17 +26,26 @@ export async function GET(
       return Response.json({ error: "Not found" }, { status: 404 });
     }
 
-    const [knowledgeItems, featuredItems, topQuestions, tenant] = await Promise.all([
+    const [knowledgeItems, featuredItems, tenant] = await Promise.all([
       queries.getKnowledgeItems(assistant.tenantId),
       queries.getFeaturedItems(assistant.tenantId),
-      queries.getTopQuestions(assistant.tenantId),
       queries.getTenantById(assistant.tenantId),
     ]);
 
-    const topFive = topQuestions.slice(0, 5).map((q) => q.question);
-    const suggestedQuestions = topFive.length > 0
-      ? topFive
-      : extractSuggestedQuestions(knowledgeItems);
+    let suggestedQuestions: string[] = [];
+    if (assistant.suggestedQuestionsMode === "manual") {
+      suggestedQuestions = assistant.suggestedQuestions.slice(0, 5);
+    } else {
+      const top = await queries.getTopFirstUserMessages(assistant.tenantId, assistant.id, 5);
+      suggestedQuestions = top.map((q) => q.question);
+      if (suggestedQuestions.length < 5) {
+        const extracted = extractSuggestedQuestions(knowledgeItems);
+        for (const q of extracted) {
+          if (suggestedQuestions.length >= 5) break;
+          if (!suggestedQuestions.includes(q)) suggestedQuestions.push(q);
+        }
+      }
+    }
 
     const featuredCards: CardData[] = featuredItems
       .filter((item) => item.type === "structured" && item.metadata)
