@@ -284,7 +284,7 @@
   }
 
   // ---- UI Elements ----
-  var bubble, iframe, container, proactiveBubble, liveRegion;
+  var bubble, iframe, container, proactiveBubble, liveRegion, loader;
 
   // ---- Styles (WCAG compliant) ----
   function createStyles() {
@@ -327,6 +327,20 @@
       ".ba-proactive-question{display:block;width:100%;padding:8px 12px;background:#f3f4f6;color:#1a1a1a;border:1px solid #e5e7eb;border-radius:8px;font:inherit;font-size:13px;text-align:left;cursor:pointer;min-height:36px;box-sizing:border-box;transition:background .15s ease}",
       ".ba-proactive-question:hover{background:#e5e7eb}",
       ".ba-proactive-question:focus-visible{outline:3px solid #005fcc;outline-offset:2px}",
+      // Iframe loading state — fills the container until the chat HTML arrives.
+      ".ba-loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:white;z-index:2;transition:opacity .25s ease-out}",
+      ".ba-loader--hidden{opacity:0;pointer-events:none}",
+      ".ba-loader-avatar{position:relative;width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font:600 22px system-ui,sans-serif;overflow:visible}",
+      ".ba-loader-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}",
+      ".ba-loader-avatar::after{content:\"\";position:absolute;inset:-6px;border-radius:50%;background:var(--ba-loader-accent);animation:ba-loader-pulse 1.6s ease-out infinite;z-index:-1}",
+      "@keyframes ba-loader-pulse{0%{transform:scale(1);opacity:.55}100%{transform:scale(1.7);opacity:0}}",
+      ".ba-loader-name{font:600 14px system-ui,sans-serif;color:#1a1a1a}",
+      ".ba-loader-dots{display:flex;gap:5px}",
+      ".ba-loader-dot{width:6px;height:6px;border-radius:50%;background:#9ca3af;animation:ba-loader-bounce 1.2s ease-in-out infinite}",
+      ".ba-loader-dot:nth-child(2){animation-delay:.15s}",
+      ".ba-loader-dot:nth-child(3){animation-delay:.3s}",
+      "@keyframes ba-loader-bounce{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-6px);opacity:1}}",
+      "@media(prefers-reduced-motion:reduce){.ba-loader-avatar::after,.ba-loader-dot{animation:none}}",
       // Screen reader only utility
       ".ba-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}",
       // Live region (hidden but announced)
@@ -434,13 +448,62 @@
   }
 
   // ---- Container (dialog) ----
-  function createContainer() {
+  function createContainer(config) {
     container = document.createElement("div");
     container.className = "ba-container";
     container.setAttribute("role", "dialog");
     container.setAttribute("aria-label", "Chat assistant");
     container.setAttribute("aria-modal", "true");
+
+    var color = (config && config.widgetColor) || "#2563eb";
+    var name = (config && config.name) || "Assistant";
+
+    loader = document.createElement("div");
+    loader.className = "ba-loader";
+    loader.setAttribute("role", "status");
+    loader.setAttribute("aria-label", "Loading chat assistant");
+
+    var avatar = document.createElement("div");
+    avatar.className = "ba-loader-avatar";
+    avatar.style.backgroundColor = color;
+    avatar.style.setProperty("--ba-loader-accent", hexToRgba(color, 0.45));
+    if (config && config.avatarUrl) {
+      var img = document.createElement("img");
+      img.src = config.avatarUrl;
+      img.alt = "";
+      img.setAttribute("aria-hidden", "true");
+      avatar.appendChild(img);
+    } else {
+      avatar.textContent = name.charAt(0).toUpperCase();
+    }
+    loader.appendChild(avatar);
+
+    var nameEl = document.createElement("div");
+    nameEl.className = "ba-loader-name";
+    nameEl.textContent = name;
+    loader.appendChild(nameEl);
+
+    var dots = document.createElement("div");
+    dots.className = "ba-loader-dots";
+    dots.setAttribute("aria-hidden", "true");
+    for (var i = 0; i < 3; i++) {
+      var d = document.createElement("span");
+      d.className = "ba-loader-dot";
+      dots.appendChild(d);
+    }
+    loader.appendChild(dots);
+
+    container.appendChild(loader);
     document.body.appendChild(container);
+  }
+
+  function hideLoader() {
+    if (!loader) return;
+    loader.classList.add("ba-loader--hidden");
+    setTimeout(function () {
+      if (loader && loader.parentNode) loader.parentNode.removeChild(loader);
+      loader = null;
+    }, 300);
   }
 
   // ---- Iframe ----
@@ -466,6 +529,10 @@
     iframe.setAttribute("allow", "microphone; clipboard-write");
     // Allow iframe content to be accessible
     iframe.setAttribute("tabindex", "0");
+    iframe.addEventListener("load", hideLoader);
+    // Safety net: if the load event never fires (blocked, offline), don't
+    // leave the loader up forever.
+    setTimeout(function () { if (loader) hideLoader(); }, 8000);
     container.appendChild(iframe);
 
     window.addEventListener("message", onIframeMessage);
@@ -852,7 +919,7 @@
         createStyles();
         createLiveRegion();
         createBubble(config);
-        createContainer();
+        createContainer(config);
 
         if (config.widgetPosition === "bottom-left") {
           bubble.style.right = "auto";
