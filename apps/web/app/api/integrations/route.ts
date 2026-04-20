@@ -66,7 +66,12 @@ export async function POST(request: NextRequest) {
   const session = await getApiSession();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });
@@ -103,9 +108,14 @@ export async function DELETE(request: NextRequest) {
   const session = await getApiSession();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json();
-  const id = body?.id;
-  const tenantId = body?.tenantId;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const id = (body as { id?: string } | null)?.id;
+  const tenantId = (body as { tenantId?: string } | null)?.tenantId;
   if (!id || !tenantId) return Response.json({ error: "id and tenantId required" }, { status: 400 });
 
   const tenant = await queries.getTenantById(tenantId);
@@ -126,7 +136,12 @@ export async function PATCH(request: NextRequest) {
   const session = await getApiSession();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = testSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: "Invalid" }, { status: 400 });
 

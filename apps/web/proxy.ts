@@ -1,3 +1,5 @@
+// Next.js 16 renamed middleware.ts to proxy.ts. Do not recreate
+// middleware.ts — it will be ignored and add confusion.
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { isMockMode } from "@/lib/env";

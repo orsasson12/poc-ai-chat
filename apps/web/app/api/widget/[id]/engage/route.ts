@@ -31,7 +31,12 @@ export async function POST(
 ) {
   const { id: assistantId } = await params;
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = signalsSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -128,7 +133,12 @@ export async function PATCH(
 ) {
   const { id: assistantId } = await params;
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = eventSchema.safeParse(body);
 
   if (!parsed.success) {

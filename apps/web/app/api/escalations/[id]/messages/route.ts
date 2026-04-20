@@ -26,7 +26,12 @@ export async function POST(
     return Response.json({ id: "mock_msg", status: "sent" });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = messageSchema.safeParse(body);
 
   if (!parsed.success) {

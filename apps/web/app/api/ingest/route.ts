@@ -5,6 +5,8 @@ import { hasDatabase } from "@/lib/env";
 import * as queries from "@/lib/db/queries";
 import { scrapeUrl } from "@/lib/knowledge/scrape-url";
 import { processKnowledgeItem } from "@/lib/knowledge/process";
+import { ingestLimiter } from "@/lib/safety/rate-limit";
+import { logger } from "@/lib/observability";
 
 const ingestSchema = z.object({
   assistantId: z.string().uuid(),
@@ -22,11 +24,29 @@ const ingestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = ingestSchema.safeParse(body);
 
   if (!parsed.success) {
     return Response.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const { assistantId } = parsed.data;
+  const { success, reset } = await ingestLimiter.limit(assistantId);
+  if (!success) {
+    logger.event("ingest.rate_limited", { assistantId, key: assistantId });
+    return Response.json(
+      { error: "Rate limited" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil((reset - Date.now()) / 1000)) },
+      },
+    );
   }
 
   if (!hasDatabase()) {
@@ -100,7 +120,12 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(request: NextRequest) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = patchSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -135,7 +160,12 @@ export async function PATCH(request: NextRequest) {
 const deleteSchema = z.object({ knowledgeItemId: z.string().uuid() });
 
 export async function DELETE(request: NextRequest) {
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = deleteSchema.safeParse(body);
 
   if (!parsed.success) {

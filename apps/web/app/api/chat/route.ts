@@ -15,6 +15,7 @@ import * as queries from "@/lib/db/queries";
 import { logger } from "@/lib/observability";
 import { classifyError } from "@/lib/observability/scrub";
 import { runSafetyPipeline } from "@/lib/safety";
+import { chatLimiter } from "@/lib/safety/rate-limit";
 import { stripPii } from "@/lib/safety/pii";
 import { generateCanaryToken } from "@/lib/safety/canary";
 import { validateResponse } from "@/lib/rag/validate";
@@ -78,7 +79,12 @@ function buildFallbackStream(fallbackMsg: string, blockedReason?: string): Respo
 
 export async function POST(request: NextRequest) {
   const startedAt = Date.now();
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = chatRequestSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -89,6 +95,19 @@ export async function POST(request: NextRequest) {
   }
 
   const { assistantId, message, sessionId, history, engagementRuleId } = parsed.data;
+
+  const rateLimitKey = `${assistantId}:${sessionId}`;
+  const { success, reset } = await chatLimiter.limit(rateLimitKey);
+  if (!success) {
+    logger.event("chat.rate_limited", { assistantId, key: rateLimitKey });
+    return Response.json(
+      { error: "Rate limited" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil((reset - Date.now()) / 1000)) },
+      },
+    );
+  }
 
   // Resolve assistant and tenant
   let assistant: Awaited<ReturnType<typeof queries.getAssistantById>> = null;
@@ -196,6 +215,7 @@ export async function POST(request: NextRequest) {
         message: cleanedMessage,
         history: sanitizedHistory,
         startedAt,
+        abortSignal: request.signal,
       });
     } catch (err) {
       logger.error(err, { tenantId, conversationId, assistantId, stage: "stream_claude_response" });
@@ -424,8 +444,9 @@ async function streamClaudeResponse(opts: {
   message: string;
   history: { role: "user" | "assistant"; content: string }[];
   startedAt: number;
+  abortSignal: AbortSignal;
 }) {
-  const { assistant, tenant, tenantId, conversationId, message, history, startedAt } = opts;
+  const { assistant, tenant, tenantId, conversationId, message, history, startedAt, abortSignal } = opts;
   const startTime = Date.now();
   const canary = generateCanaryToken(tenantId);
 
@@ -482,15 +503,19 @@ async function streamClaudeResponse(opts: {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const response = await anthropic.messages.create({
-          model: MODELS.primary,
-          max_tokens: 1024,
-          system: systemPrompt,
-          messages,
-          stream: true,
-        });
+        const response = await anthropic.messages.create(
+          {
+            model: MODELS.primary,
+            max_tokens: 1024,
+            system: systemPrompt,
+            messages,
+            stream: true,
+          },
+          { signal: abortSignal },
+        );
 
         for await (const event of response) {
+          if (abortSignal.aborted) break;
           if (
             event.type === "content_block_delta" &&
             event.delta.type === "text_delta"
@@ -535,6 +560,25 @@ async function streamClaudeResponse(opts: {
               encoder.encode(`data: ${JSON.stringify({ token: text })}\n\n`),
             );
           }
+        }
+
+        // Client disconnected (tab close, navigation, fetch abort). Skip
+        // output validation, skip DB persistence, and close the stream
+        // without a [DONE] sentinel — the reader is already gone. We also
+        // deliberately drop the partial assistant message instead of saving
+        // it: an aborted response is almost certainly incomplete/mid-sentence,
+        // and surfacing it in conversation history would confuse the user
+        // on reconnect and pollute analytics (latency/confidence/fallback
+        // metrics assume a fully-generated answer).
+        if (abortSignal.aborted) {
+          logger.event("chat.stream.aborted", {
+            tenantId,
+            conversationId,
+            charsEmitted: fullResponse.length,
+            durationMs: Date.now() - startTime,
+          });
+          controller.close();
+          return;
         }
 
         // Post-generation output validation (Layer 4 — canary + ungrounded check).
@@ -650,6 +694,23 @@ async function streamClaudeResponse(opts: {
         controller.close();
       } catch (err) {
         if (canaryLeaked) return; // already closed
+        // If the client disconnected mid-stream the SDK throws an abort
+        // error. Treat it the same as a clean abort detected by the loop
+        // guard: log once, drop the partial, no fallback token, no [DONE].
+        if (abortSignal.aborted) {
+          logger.event("chat.stream.aborted", {
+            tenantId,
+            conversationId,
+            charsEmitted: fullResponse.length,
+            durationMs: Date.now() - startTime,
+          });
+          try {
+            controller.close();
+          } catch {
+            // Stream may already be torn down by the cancelled reader.
+          }
+          return;
+        }
         logger.error(err, { tenantId, conversationId, stage: "claude_stream" });
         logger.event("chat.request.failed", {
           tenantId,

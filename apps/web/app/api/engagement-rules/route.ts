@@ -50,7 +50,12 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = createSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -149,7 +154,12 @@ export async function PUT(request: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = updateSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -188,8 +198,13 @@ export async function DELETE(request: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const id = body?.id;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const id = (body as { id?: string } | null)?.id;
   if (!id) return Response.json({ error: "id required" }, { status: 400 });
 
   const { getDb } = await import("@/lib/db/client");

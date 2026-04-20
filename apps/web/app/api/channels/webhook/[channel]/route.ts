@@ -56,7 +56,12 @@ export async function POST(
     return Response.json({ error: "Invalid channel" }, { status: 400 });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
   // Always respond 200 to Meta quickly to avoid retries
   // Process asynchronously

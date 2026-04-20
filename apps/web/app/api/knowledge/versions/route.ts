@@ -41,7 +41,12 @@ export async function POST(request: NextRequest) {
   const session = await getApiSession();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = rollbackSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });

@@ -108,6 +108,20 @@ export type EventFields = {
     strippedCount: number;
     responseLen: number;
   };
+  "chat.rate_limited": {
+    assistantId: string;
+    key: string;
+  };
+  "chat.stream.aborted": {
+    tenantId: string | null;
+    conversationId: string | null;
+    charsEmitted: number;
+    durationMs: number;
+  };
+  "ingest.rate_limited": {
+    assistantId: string;
+    key: string;
+  };
 };
 
 export type EventName = keyof EventFields;
