@@ -5,7 +5,7 @@ import { hasDatabase } from "@/lib/env";
 import * as queries from "@/lib/db/queries";
 import { AnalyticsTabs } from "@/components/dashboard/analytics/analytics-tabs";
 import { TenantPicker } from "@/components/dashboard/analytics/tenant-picker";
-import { buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { logger } from "@/lib/observability";
 import { getMockAnalyticsOverview } from "@/lib/mock/analytics";
 
@@ -76,15 +76,20 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           {tenantOptions.length > 0 && (
             <TenantPicker tenants={tenantOptions} selectedId={selectedTenantId} />
           )}
-          <a
-            href={`/api/analytics/export?range=30&tenantId=${encodeURIComponent(selectedTenantId)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+          <Button
+            variant="outline"
+            size="sm"
+            render={
+              <a
+                href={`/api/analytics/export?range=30&tenantId=${encodeURIComponent(selectedTenantId)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              />
+            }
           >
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             Export PDF
-          </a>
+          </Button>
         </div>
       </header>
 
