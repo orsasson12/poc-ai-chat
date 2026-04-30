@@ -48,7 +48,25 @@
       "Bash(npx -y supabase --version)",
       "Bash(node --check C:/Users/orsas/OneDrive/Desktop/poc-ai-chat/apps/web/public/widget.js)",
       "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
-      "Bash(xargs wc *)"
+      "Bash(xargs wc *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(awk -F= '{print $1 \" = \" \\(length\\($2\\) > 0 ? \"<set>\" : \"<empty>\"\\)}')",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(node --check apps/web/public/widget.js)",
+      "Bash(cmd *)",
+      "Bash(/c/Program Files/Git/bin/git.exe status *)",
+      "Bash(/c/Program Files/Git/bin/git.exe log *)",
+      "Bash(\"/c/Program Files/Git/bin/git.exe\" add \"docs/superpowers/specs/2026-04-20-chat-theme-presets-design.md\")",
+      "Bash('/c/Program Files/Git/bin/git.exe' commit -m ' *)",
+      "Bash(/c/Program Files/Git/bin/git.exe commit *)",
+      "Bash(\"/c/Program Files/Git/bin/git.exe\" push origin master)",
+      "Bash(rm .git/COMMIT_MSG_BRAINSTORM.txt)",
+      "Bash(\"/c/Program Files/Git/bin/git.exe\" status --short)",
+      "Bash(\"/c/Program Files/Git/bin/git.exe\" ls-files)",
+      "Bash(\"/c/Program Files/Git/bin/git.exe\" add \"docs/superpowers/plans/2026-04-20-chat-theme-presets.md\")",
+      "Bash(\"/c/Program Files/Git/bin/git.exe\" commit -F .git/COMMIT_MSG_PLAN.txt)",
+      "Bash(rm .git/COMMIT_MSG_PLAN.txt)",
+      "Bash(\"/c/Program Files/Git/bin/git.exe\" log --oneline -3)"
     ]
   }
 }
