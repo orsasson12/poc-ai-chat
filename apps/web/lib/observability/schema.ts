@@ -24,6 +24,15 @@ export type EventFields = {
     errKind: string;
     durationMs: number;
   };
+  "chat.persistence.failed": {
+    tenantId: string | null;
+    conversationId: string | null;
+    assistantId: string;
+    sessionId: string;
+    stage: "save_user_message";
+    errKind: string;
+    pgCode: string | null;
+  };
   "chat.stream.token_latency": {
     tenantId: string | null;
     conversationId: string | null;

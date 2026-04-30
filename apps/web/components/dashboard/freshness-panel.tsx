@@ -160,10 +160,15 @@ export function FreshnessPanel({ tenantId, knowledgeItems }: FreshnessPanelProps
     return <DiffViewer change={p.viewingDiff} onApprove={p.handleApprove} onReject={p.handleReject} onBack={() => p.setViewingDiff(null)} />;
   }
 
-  // Calculate health score
+  // Calculate health score. With no scheduled URL items there is nothing
+  // to measure — render "—" instead of a misleading 100% that hides the
+  // empty state.
   const urlItems = knowledgeItems.filter((i) => i.type === "url" && i.refreshSchedule !== "manual");
   const freshCount = urlItems.filter((i) => getStalenessLevel(i) === "fresh").length;
-  const healthScore = urlItems.length > 0 ? Math.round((freshCount / urlItems.length) * 100) : 100;
+  const hasHealthSignal = urlItems.length > 0;
+  const healthScoreLabel = hasHealthSignal
+    ? `${Math.round((freshCount / urlItems.length) * 100)}%`
+    : "—";
 
   return (
     <div className="space-y-4">
@@ -171,7 +176,7 @@ export function FreshnessPanel({ tenantId, knowledgeItems }: FreshnessPanelProps
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-3xl font-bold">{healthScore}%</p>
+            <p className="text-3xl font-bold">{healthScoreLabel}</p>
             <p className="text-xs text-muted-foreground">Knowledge Freshness</p>
           </CardContent>
         </Card>

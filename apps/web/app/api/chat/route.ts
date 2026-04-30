@@ -143,8 +143,24 @@ export async function POST(request: NextRequest) {
         content: message,
       });
     } catch (err) {
-      logger.error(err, { tenantId, conversationId, assistantId, stage: "save_user_message" });
-      // Continue without persistence — still try to generate a response
+      // Continue without persistence — still try to generate a response.
+      // BUT surface the failure as a typed event so a stale schema or DB
+      // connectivity regression shows up in Sentry/Axiom rather than
+      // silently producing empty conversation+stats dashboards.
+      const pgCode =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code: unknown }).code)
+          : null;
+      logger.error(err, { tenantId, conversationId, assistantId, stage: "save_user_message", pgCode });
+      logger.event("chat.persistence.failed", {
+        tenantId,
+        conversationId,
+        assistantId,
+        sessionId,
+        stage: "save_user_message",
+        errKind: classifyError(err),
+        pgCode,
+      });
     }
   }
 

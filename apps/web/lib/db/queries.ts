@@ -573,16 +573,22 @@ export async function getDashboardMetrics(tenantId: string): Promise<DashboardMe
         .where(eq(s.conversations.tenantId, tenantId)),
     ]);
 
-  const total = monthRow.value || 1;
-  const resolutionRate = Math.max(0, 1 - escalatedRow.value / total);
+  // With zero conversations there is no signal — show 0, not a misleading
+  // "100%" produced by `escalated / 1`. Mirrors the behaviour in
+  // lib/analytics/queries.ts:191 (getAnalyticsOverview).
+  const total = monthRow.value;
+  const resolutionRate = total > 0 ? Math.max(0, 1 - escalatedRow.value / total) : 0;
 
   const csatAvg = csatRow.avg ? parseFloat(csatRow.avg) : 0;
   const csatScore = (csatAvg + 1) / 2; // normalize -1..1 to 0..1
 
-  const healthScore = Math.min(
-    100,
-    Math.round(resolutionRate * 50 + (1 - fallbackRow.value / Math.max(total, 1)) * 50),
-  );
+  const healthScore =
+    total > 0
+      ? Math.min(
+          100,
+          Math.round(resolutionRate * 50 + (1 - fallbackRow.value / total) * 50),
+        )
+      : 0;
 
   return {
     conversationsToday: todayRow.value,
