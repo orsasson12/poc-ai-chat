@@ -40,11 +40,20 @@ function Kpi({ label, value, hint, icon }: KpiProps) {
   );
 }
 
-function formatPct(value: number): string {
+function formatPct(value: number | null): string {
+  if (value === null) return "—";
   return `${Math.round(value * 100)}%`;
 }
 
+function formatSeconds(ms: number | null): string {
+  if (ms === null) return "—";
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 export function KpiCards({ kpis }: KpiCardsProps) {
+  // With zero conversations, resolution rate has no signal either — show "—"
+  // rather than a flat 0% that looks like all conversations failed to resolve.
+  const hasConversations = kpis.totalConversations > 0;
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
       <Kpi
@@ -54,7 +63,7 @@ export function KpiCards({ kpis }: KpiCardsProps) {
       />
       <Kpi
         label="Resolution rate"
-        value={formatPct(kpis.resolutionRate)}
+        value={hasConversations ? formatPct(kpis.resolutionRate) : "—"}
         hint="Without escalation"
         icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
       />
@@ -66,18 +75,18 @@ export function KpiCards({ kpis }: KpiCardsProps) {
       <Kpi
         label="CSAT score"
         value={formatPct(kpis.csatScore)}
-        hint="Rated responses"
+        hint={kpis.csatScore === null ? "No ratings yet" : "Rated responses"}
         icon={<Smile className="h-4 w-4" aria-hidden="true" />}
       />
       <Kpi
         label="Avg response"
-        value={`${(kpis.avgResponseMs / 1000).toFixed(1)}s`}
+        value={formatSeconds(kpis.avgResponseMs)}
         icon={<Clock className="h-4 w-4" aria-hidden="true" />}
       />
       <Kpi
         label="Deflected"
         value={kpis.deflectedCount.toLocaleString()}
-        hint={`${formatPct(1 - kpis.fallbackRate)} answered`}
+        hint={hasConversations ? `${formatPct(1 - kpis.fallbackRate)} answered` : undefined}
         icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />}
       />
     </div>

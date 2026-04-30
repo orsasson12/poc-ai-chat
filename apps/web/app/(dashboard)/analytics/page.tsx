@@ -1,16 +1,49 @@
 import { Download } from "lucide-react";
 import { getSessionContext } from "@/lib/auth/session";
 import { getAnalyticsOverview } from "@/lib/analytics/queries";
+import { hasDatabase } from "@/lib/env";
+import * as queries from "@/lib/db/queries";
 import { AnalyticsTabs } from "@/components/dashboard/analytics/analytics-tabs";
+import { TenantPicker } from "@/components/dashboard/analytics/tenant-picker";
 import { buttonVariants } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
-export default async function AnalyticsPage() {
+interface AnalyticsPageProps {
+  searchParams: Promise<{ tenantId?: string }>;
+}
+
+export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const session = await getSessionContext();
-  const tenantId = session?.tenant.id ?? "mock";
-  const assistantId = session?.assistant?.id ?? null;
-  const overview = await getAnalyticsOverview(tenantId, 30);
+  const params = await searchParams;
+
+  // Owners frequently have multiple customer tenants. Without a picker the
+  // page used getTenantForUser() which does LIMIT 1 with no ORDER BY — i.e.
+  // a non-deterministic tenant — so the analytics could randomly land on an
+  // empty customer and look broken. Now we list all owned tenants and let
+  // the user pick; default to the customer with the most conversations.
+  const ownedTenants = hasDatabase() && session
+    ? await queries.getAllTenantsForOwner(session.user.id)
+    : [];
+
+  const tenantOptions = ownedTenants.map((t) => ({
+    id: t.id,
+    name: t.name,
+    conversationCount: t.conversationCount,
+  }));
+
+  const requestedId = params.tenantId;
+  const requestedExists = requestedId && tenantOptions.some((t) => t.id === requestedId);
+  const defaultTenant =
+    [...tenantOptions].sort((a, b) => b.conversationCount - a.conversationCount)[0] ?? null;
+
+  const selectedTenantId =
+    (requestedExists ? requestedId : defaultTenant?.id) ?? session?.tenant.id ?? "mock";
+
+  const selectedAssistant = ownedTenants.find((t) => t.id === selectedTenantId)?.assistant ?? null;
+  const assistantId = selectedAssistant?.id ?? session?.assistant?.id ?? null;
+
+  const overview = await getAnalyticsOverview(selectedTenantId, 30);
 
   return (
     <main className="flex flex-col gap-6 p-4 md:p-6">
@@ -21,15 +54,20 @@ export default async function AnalyticsPage() {
             Understand where your bot delivers value and where to improve it next.
           </p>
         </div>
-        <a
-          href="/api/analytics/export?range=30"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-          Export PDF
-        </a>
+        <div className="flex items-center gap-2">
+          {tenantOptions.length > 0 && (
+            <TenantPicker tenants={tenantOptions} selectedId={selectedTenantId} />
+          )}
+          <a
+            href={`/api/analytics/export?range=30&tenantId=${encodeURIComponent(selectedTenantId)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+            Export PDF
+          </a>
+        </div>
       </header>
 
       <AnalyticsTabs overview={overview} assistantId={assistantId} />

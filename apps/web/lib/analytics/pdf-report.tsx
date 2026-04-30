@@ -118,19 +118,19 @@ export function AnalyticsReport({
           </View>
           <View style={styles.kpiCell}>
             <Text style={styles.kpiLabel}>Avg confidence</Text>
-            <Text style={styles.kpiValue}>{Math.round(kpis.avgConfidence * 100)}%</Text>
+            <Text style={styles.kpiValue}>{kpis.avgConfidence === null ? "—" : `${Math.round(kpis.avgConfidence * 100)}%`}</Text>
           </View>
           <View style={styles.kpiCell}>
             <Text style={styles.kpiLabel}>CSAT score</Text>
-            <Text style={styles.kpiValue}>{Math.round(kpis.csatScore * 100)}%</Text>
+            <Text style={styles.kpiValue}>{kpis.csatScore === null ? "—" : `${Math.round(kpis.csatScore * 100)}%`}</Text>
           </View>
           <View style={styles.kpiCell}>
             <Text style={styles.kpiLabel}>Avg response time</Text>
-            <Text style={styles.kpiValue}>{(kpis.avgResponseMs / 1000).toFixed(1)}s</Text>
+            <Text style={styles.kpiValue}>{kpis.avgResponseMs === null ? "—" : `${(kpis.avgResponseMs / 1000).toFixed(1)}s`}</Text>
           </View>
           <View style={styles.kpiCell}>
             <Text style={styles.kpiLabel}>Avg messages / conv</Text>
-            <Text style={styles.kpiValue}>{kpis.avgMessagesPerConv.toFixed(1)}</Text>
+            <Text style={styles.kpiValue}>{kpis.avgMessagesPerConv === null ? "—" : kpis.avgMessagesPerConv.toFixed(1)}</Text>
           </View>
         </View>
 

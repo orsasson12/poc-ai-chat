@@ -9,12 +9,15 @@ export interface AnalyticsOverview {
   kpis: {
     totalConversations: number;
     resolutionRate: number;
-    avgConfidence: number;
-    csatScore: number;
-    avgResponseMs: number;
+    // null when there is no underlying signal (no rated conversations / no
+    // assistant messages / no latency data). Distinguishes "no data" from a
+    // genuine zero so the UI can render "—" instead of misleading 0%/50%.
+    avgConfidence: number | null;
+    csatScore: number | null;
+    avgResponseMs: number | null;
     deflectedCount: number;
     fallbackRate: number;
-    avgMessagesPerConv: number;
+    avgMessagesPerConv: number | null;
   };
   trends: {
     volume: { date: string; count: number }[];

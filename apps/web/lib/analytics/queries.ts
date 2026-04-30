@@ -175,10 +175,16 @@ export async function getAnalyticsOverview(
   // avoid unused var lint if prevSince path not used yet
   void prevSince;
 
-  const avgConfidence = msgRow?.avgConfidence ? parseFloat(msgRow.avgConfidence) : 0;
+  // Distinguish "no signal" from a genuine zero. With no assistant messages
+  // there is no confidence/latency to average; with no rated conversations
+  // CSAT averaged from satisfaction != 0 is null, and (null+1)/2 used to
+  // render as a misleading "50%". Push null through and let the UI render
+  // "—" instead.
+  const avgConfidence = msgRow?.avgConfidence ? parseFloat(msgRow.avgConfidence) : null;
+  const avgResponseMs = msgRow?.avgLatency ? parseFloat(msgRow.avgLatency) : null;
+  const avgMessagesPerConv = kpiRow?.avgMessages ? parseFloat(kpiRow.avgMessages) : null;
   const fallbackRate = msgRow?.total ? Number(msgRow.fallbackCount) / Number(msgRow.total) : 0;
-  const satAvg = kpiRow?.satisfactionAvg ? parseFloat(kpiRow.satisfactionAvg) : 0;
-  const csatScore = (satAvg + 1) / 2;
+  const csatScore = kpiRow?.satisfactionAvg ? (parseFloat(kpiRow.satisfactionAvg) + 1) / 2 : null;
 
   return {
     range: {
@@ -191,10 +197,10 @@ export async function getAnalyticsOverview(
       resolutionRate: total > 0 ? Math.max(0, 1 - escalated / total) : 0,
       avgConfidence,
       csatScore,
-      avgResponseMs: msgRow?.avgLatency ? parseFloat(msgRow.avgLatency) : 0,
+      avgResponseMs,
       deflectedCount: deflected,
       fallbackRate,
-      avgMessagesPerConv: kpiRow?.avgMessages ? parseFloat(kpiRow.avgMessages) : 0,
+      avgMessagesPerConv,
     },
     trends: {
       volume,
