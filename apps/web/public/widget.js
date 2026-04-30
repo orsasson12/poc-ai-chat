@@ -293,17 +293,24 @@
     var animation = prefersReducedMotion ? "none" : "ba-slide-in .3s ease";
 
     style.textContent = [
-      // Bubble: 56x56 meets 44x44 minimum touch target (WCAG 2.5.5)
-      ".ba-bubble{position:fixed!important;bottom:20px!important;right:20px!important;top:auto!important;left:auto!important;width:56px;height:56px;border-radius:50%;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;z-index:2147483646!important;transition:" + transition + ";border:none;padding:0;margin:0}",
+      // Bubble: 56x56 meets 44x44 minimum touch target (WCAG 2.5.5).
+      // Bottom uses max(20px, safe-area-inset-bottom) so the iOS home indicator
+      // never sits on top of the launcher.
+      ".ba-bubble{position:fixed!important;bottom:20px!important;bottom:max(20px,calc(env(safe-area-inset-bottom) + 12px))!important;right:20px!important;top:auto!important;left:auto!important;width:56px;height:56px;border-radius:50%;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;z-index:2147483646!important;transition:" + transition + ";border:none;padding:0;margin:0}",
       // Focus indicator: 2px solid outline with offset (WCAG 2.4.7)
       ".ba-bubble:focus-visible{outline:3px solid #005fcc;outline-offset:3px}",
       ".ba-bubble:hover{transform:" + (prefersReducedMotion ? "none" : "scale(1.1)") + "}",
       ".ba-bubble svg{width:24px;height:24px;fill:white}",
-      // Container with role=dialog
-      ".ba-container{position:fixed!important;bottom:88px!important;right:20px!important;top:auto!important;left:auto!important;width:380px;height:600px;max-height:calc(100vh - 100px);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:2147483647!important;display:none;background:white;margin:0}",
+      // Container with role=dialog. Uses 100dvh so iOS Safari's collapsing URL
+      // bar doesn't clip the bottom of the chat (100vh is the *large* viewport
+      // and overflows when the URL bar is visible). 100vh stays as a fallback
+      // for browsers without dvh support.
+      ".ba-container{position:fixed!important;bottom:88px!important;right:20px!important;top:auto!important;left:auto!important;width:380px;height:600px;max-height:calc(100vh - 100px);max-height:calc(100dvh - 100px);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:2147483647!important;display:none;background:white;margin:0}",
       ".ba-container iframe{width:100%;height:100%;border:none}",
-      // Proactive bubble
-      ".ba-proactive{position:fixed!important;bottom:84px!important;right:20px!important;top:auto!important;left:auto!important;max-width:280px;padding:12px 16px;border-radius:12px 12px 4px 12px;background:white;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:2147483645!important;font:14px/1.4 system-ui,sans-serif;color:#1a1a1a;cursor:pointer;animation:" + animation + ";margin:0}",
+      // Proactive bubble. Bottom matches the launcher offset + bubble height
+      // so it sits just above the launcher; safe-area-inset is added so the
+      // bubble clears the iOS home indicator the same way the launcher does.
+      ".ba-proactive{position:fixed!important;bottom:84px!important;bottom:max(84px,calc(env(safe-area-inset-bottom) + 76px))!important;right:20px!important;top:auto!important;left:auto!important;max-width:280px;padding:12px 16px;border-radius:12px 12px 4px 12px;background:white;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:2147483645!important;font:14px/1.4 system-ui,sans-serif;color:#1a1a1a;cursor:pointer;animation:" + animation + ";margin:0}",
       // Close button: 44x44 touch target
       ".ba-proactive-close{position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;font-size:18px;color:#666;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}",
       ".ba-proactive-close:focus-visible{outline:3px solid #005fcc;outline-offset:-2px;border-radius:4px}",
@@ -359,10 +366,14 @@
       ".ba-bubble--flash::after{content:\"\";position:absolute;inset:-4px;border-radius:50%;background:var(--ba-accent,rgba(0,0,0,0));animation:ba-pulse 1.5s ease-out 3;pointer-events:none;z-index:-1}",
       // Pause all launcher animation while the proactive popup is visible
       ".ba-bubble[data-proactive-open=\"true\"].ba-bubble--pulse::after,.ba-bubble[data-proactive-open=\"true\"].ba-bubble--bounce,.ba-bubble[data-proactive-open=\"true\"].ba-bubble--flash,.ba-bubble[data-proactive-open=\"true\"].ba-bubble--flash::after{animation-play-state:paused}",
-      // Mobile: full screen
-      // Mobile: bottom-sheet with margin on both sides so the host page is
-      // still partially visible and the bubble stays reachable below.
-      "@media(max-width:480px){.ba-container{width:auto;left:12px;right:12px;bottom:88px;height:calc(100vh - 108px);max-height:calc(100vh - 108px);border-radius:16px}}",
+      // Mobile: full-screen takeover. On phones the prior bottom-sheet (12px
+      // side margins, 88px bottom gap) left the textarea clipped behind iOS
+      // Safari's bottom toolbar/keyboard, and rounded corners over a fixed
+      // viewport made the chat feel cramped. Full-screen + 100dvh + safe-area
+      // padding is the conventional native-feeling pattern.
+      // The visual-viewport JS hook below also overrides height in real time
+      // when the soft keyboard opens.
+      "@media(max-width:480px){.ba-bubble[data-widget-open=\"true\"]{display:none!important}.ba-container{width:100vw;left:0;right:0;top:0;bottom:0;height:100vh;height:100dvh;max-height:none;border-radius:0}}",
       // Reduced motion — cancels all bubble + launcher CTA animation
       "@media(prefers-reduced-motion:reduce){.ba-bubble,.ba-proactive,.ba-proactive-close{transition:none;animation:none}.ba-bubble:hover{transform:none}.ba-bubble--pulse::after,.ba-bubble--flash::after{animation:none}}",
     ].join("\n");
@@ -497,6 +508,43 @@
     document.body.appendChild(container);
   }
 
+  // Mobile keyboard handling. iOS Safari shrinks `visualViewport` when the
+  // soft keyboard appears but does NOT shrink dvh/vh, so the fixed container
+  // overflows the visible area and the textarea ends up under the keyboard.
+  // We pin the container to the visual viewport whenever the keyboard is open
+  // on a phone-sized screen, then release it on close so the CSS rule reigns
+  // again.
+  var KEYBOARD_DELTA_PX = 120; // heuristic: any shrink larger than this is the keyboard, not the URL bar
+  function syncContainerToViewport() {
+    if (!container || !state.widgetOpen) return;
+    var vv = window.visualViewport;
+    var isMobile = window.innerWidth <= 480;
+    if (!vv || !isMobile) {
+      container.style.height = "";
+      container.style.bottom = "";
+      return;
+    }
+    var keyboardOpen = window.innerHeight - vv.height > KEYBOARD_DELTA_PX;
+    if (keyboardOpen) {
+      // Anchor the container to the visible viewport top + height.
+      container.style.height = vv.height + "px";
+      container.style.bottom = "auto";
+      container.style.top = vv.offsetTop + "px";
+    } else {
+      // Reset to CSS-driven sizing.
+      container.style.height = "";
+      container.style.bottom = "";
+      container.style.top = "";
+    }
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", syncContainerToViewport);
+    window.visualViewport.addEventListener("scroll", syncContainerToViewport);
+  }
+  window.addEventListener("orientationchange", function () {
+    setTimeout(syncContainerToViewport, 200);
+  });
+
   function hideLoader() {
     if (!loader) return;
     loader.classList.add("ba-loader--hidden");
@@ -548,6 +596,8 @@
     container.style.display = "block";
     state.widgetOpen = true;
     bubble.setAttribute("aria-expanded", "true");
+    bubble.dataset.widgetOpen = "true";
+    syncContainerToViewport();
     hideProactiveMessage();
 
     // Move focus into the iframe after a brief delay for load
@@ -570,6 +620,7 @@
     container.style.display = "none";
     state.widgetOpen = false;
     bubble.setAttribute("aria-expanded", "false");
+    bubble.dataset.widgetOpen = "false";
 
     document.removeEventListener("keydown", onWidgetKeydown);
 

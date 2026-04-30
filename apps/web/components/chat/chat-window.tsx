@@ -81,6 +81,7 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
   // header: only embedded chats can ask the parent widget to close them.
   const [isEmbedded, setIsEmbedded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string>("");
   const lastUserMessageRef = useRef<string>("");
   const escalationSseRef = useRef<boolean>(false);
@@ -294,6 +295,33 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
     };
     vv.addEventListener("resize", handleViewportResize);
     return () => vv.removeEventListener("resize", handleViewportResize);
+  }, []);
+
+  // iOS soft-keyboard sizing. `h-dvh` does NOT shrink when the keyboard opens,
+  // so the wrapper overflows the visible area and the textarea ends up under
+  // the keyboard. We pin the wrapper height to `visualViewport.height` only
+  // when the keyboard is open on a phone-sized screen — mirrors the same
+  // logic used in widget.js (syncContainerToViewport) for iframe mode.
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    const el = wrapperRef.current;
+    if (!vv || !el) return;
+    const KB_DELTA_PX = 120; // shrink larger than this = keyboard, not URL bar
+    const sync = () => {
+      const isMobile = window.innerWidth <= 480;
+      const keyboardOpen = isMobile && window.innerHeight - vv.height > KB_DELTA_PX;
+      el.style.height = keyboardOpen ? `${vv.height}px` : "";
+    };
+    const handleOrientation = () => setTimeout(sync, 200);
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    window.addEventListener("orientationchange", handleOrientation);
+    sync();
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+      window.removeEventListener("orientationchange", handleOrientation);
+    };
   }, []);
 
   const handleSend = useCallback(async (content: string) => {
@@ -582,7 +610,7 @@ export function ChatWindow({ assistantId, assistantName, avatarUrl, greeting, wi
   );
 
   return (
-    <div className="flex h-full flex-col" role="application" aria-label={`Chat with ${assistantName}`}>
+    <div ref={wrapperRef} className="flex h-full flex-col" role="application" aria-label={`Chat with ${assistantName}`}>
       {/* Header landmark */}
       <header className="flex items-center gap-3 border-b px-4 py-3" style={{ backgroundColor: widgetColor, paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
         {avatarUrl ? (
