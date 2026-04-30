@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   Users,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,6 +22,7 @@ import {
 
 const navItems = [
   { title: "Customers", href: "/customers", icon: Users },
+  { title: "Analytics", href: "/analytics", icon: BarChart3 },
   { title: "Knowledge Base", href: "/knowledge", icon: BookOpen },
 ];
 

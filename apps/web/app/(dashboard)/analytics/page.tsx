@@ -6,6 +6,8 @@ import * as queries from "@/lib/db/queries";
 import { AnalyticsTabs } from "@/components/dashboard/analytics/analytics-tabs";
 import { TenantPicker } from "@/components/dashboard/analytics/tenant-picker";
 import { buttonVariants } from "@/components/ui/button";
+import { logger } from "@/lib/observability";
+import { getMockAnalyticsOverview } from "@/lib/mock/analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +24,16 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   // a non-deterministic tenant — so the analytics could randomly land on an
   // empty customer and look broken. Now we list all owned tenants and let
   // the user pick; default to the customer with the most conversations.
-  const ownedTenants = hasDatabase() && session
-    ? await queries.getAllTenantsForOwner(session.user.id)
-    : [];
+  let ownedTenants: Awaited<ReturnType<typeof queries.getAllTenantsForOwner>> = [];
+  if (hasDatabase() && session) {
+    try {
+      ownedTenants = await queries.getAllTenantsForOwner(session.user.id);
+    } catch (err) {
+      // Don't blow up the whole page on a tenant-list query failure — fall
+      // back to whatever tenant the session already resolved.
+      logger.error(err, { stage: "analytics.getAllTenantsForOwner", userId: session.user.id });
+    }
+  }
 
   const tenantOptions = ownedTenants.map((t) => ({
     id: t.id,
@@ -37,13 +46,22 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const defaultTenant =
     [...tenantOptions].sort((a, b) => b.conversationCount - a.conversationCount)[0] ?? null;
 
-  const selectedTenantId =
-    (requestedExists ? requestedId : defaultTenant?.id) ?? session?.tenant.id ?? "mock";
+  // Resolve tenantId. Never pass the placeholder "mock" string into the real
+  // DB query — its tenant_id columns are uuid type and the cast throws.
+  const resolvedTenantId =
+    (requestedExists ? requestedId : defaultTenant?.id) ?? session?.tenant.id ?? null;
+  const selectedTenantId = resolvedTenantId ?? "mock";
 
   const selectedAssistant = ownedTenants.find((t) => t.id === selectedTenantId)?.assistant ?? null;
   const assistantId = selectedAssistant?.id ?? session?.assistant?.id ?? null;
 
-  const overview = await getAnalyticsOverview(selectedTenantId, 30);
+  const overview =
+    resolvedTenantId && hasDatabase()
+      ? await getAnalyticsOverview(resolvedTenantId, 30).catch((err) => {
+          logger.error(err, { stage: "analytics.getOverview", tenantId: resolvedTenantId });
+          return getMockAnalyticsOverview(30);
+        })
+      : await getAnalyticsOverview(selectedTenantId, 30);
 
   return (
     <main className="flex flex-col gap-6 p-4 md:p-6">
