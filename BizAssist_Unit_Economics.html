@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BizAssist · מחשבון יחידת כלכלה</title>
+<style>
+  :root {
+    --bg: #F6F8FB;
+    --card: #FFFFFF;
+    --ink: #0B1437;
+    --body: #3B4A6B;
+    --muted: #8494B0;
+    --line: #E3E8F2;
+    --navy: #0B1437;
+    --teal: #00B4A6;
+    --teal-soft: #E6FAF7;
+    --coral: #FF5A5F;
+    --gold: #F0B429;
+    --green: #10B981;
+    --purple: #7C3AED;
+    --purple-soft: #F5F0FE;
+    --radius: 12px;
+    --shadow: 0 2px 8px rgba(11, 20, 55, 0.06);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    direction: rtl;
+  }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  header { margin-bottom: 32px; }
+  .eyebrow { color: var(--teal); font-weight: 700; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+  h1 { font-size: 34px; margin: 6px 0 4px; color: var(--ink); font-weight: 800; }
+  .sub { color: var(--body); font-size: 15px; max-width: 780px; line-height: 1.6; }
+
+  /* Grid layout */
+  .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 20px; }
+  @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 { margin: 0 0 4px; font-size: 18px; color: var(--ink); font-weight: 700; }
+  .card .desc { color: var(--muted); font-size: 12px; margin-bottom: 18px; }
+
+  /* Scenario tabs */
+  .scenarios {
+    display: flex;
+    gap: 6px;
+    background: var(--bg);
+    padding: 4px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  .scen-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--body);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .scen-btn.active { background: var(--ink); color: white; }
+  .scen-btn:not(.active):hover { background: white; }
+
+  /* Input rows */
+  .tier-row {
+    display: grid;
+    grid-template-columns: 120px 1fr 80px;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .tier-row:last-child { border-bottom: none; }
+  .tier-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .tier-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .tier-slider { width: 100%; -webkit-appearance: none; height: 6px; background: var(--line); border-radius: 3px; outline: none; }
+  .tier-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--teal); cursor: pointer;
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgba(0, 180, 166, 0.35);
+  }
+  .tier-slider::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--teal); cursor: pointer;
+    border: 3px solid white;
+  }
+  .tier-value {
+    text-align: center;
+    background: var(--bg);
+    padding: 8px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  /* Parameter sliders */
+  .params { margin-top: 22px; padding-top: 18px; border-top: 2px dashed var(--line); }
+  .param-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 70px;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+  }
+  .param-row label { font-size: 12px; color: var(--body); }
+  .param-row .hint { font-size: 10px; color: var(--muted); display: block; margin-top: 2px; }
+
+  /* Output section */
+  .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+  .kpi {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 14px;
+    border-right: 4px solid var(--teal);
+  }
+  .kpi.accent-coral { border-right-color: var(--coral); }
+  .kpi.accent-navy { border-right-color: var(--navy); }
+  .kpi.accent-purple { border-right-color: var(--purple); }
+  .kpi-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-value { font-size: 26px; font-weight: 800; color: var(--ink); margin-top: 4px; }
+  .kpi-sub { font-size: 11px; color: var(--body); margin-top: 2px; }
+
+  /* Per-tier breakdown table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: right;
+    padding: 10px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--muted);
+    border-bottom: 2px solid var(--line);
+  }
+  thead th:not(:first-child) { text-align: center; }
+  tbody td {
+    padding: 11px 8px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    font-weight: 500;
+  }
+  tbody td:not(:first-child) { text-align: center; }
+  tbody tr:last-child td { border-bottom: none; background: var(--teal-soft); font-weight: 700; }
+  .margin-bar {
+    display: inline-block;
+    height: 6px;
+    background: var(--teal);
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+
+  /* Health indicator */
+  .health {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 18px;
+    border-radius: 12px;
+    margin-top: 16px;
+    font-size: 14px;
+  }
+  .health.good { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+  .health.warn { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+  .health.bad  { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+  .health-icon { font-size: 24px; line-height: 1; }
+
+  /* Cost breakdown chart */
+  .cost-bar {
+    height: 36px;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    margin: 10px 0 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+  }
+  .cost-bar > div { display: flex; align-items: center; justify-content: center; transition: flex .25s; }
+  .cost-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--body);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* Notes footer */
+  .notes {
+    margin-top: 28px;
+    padding: 20px 22px;
+    background: var(--navy);
+    color: #CADCFC;
+    border-radius: var(--radius);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .notes h3 { color: white; font-size: 14px; margin: 0 0 10px; }
+  .notes ul { margin: 0; padding-right: 18px; }
+  .notes code { background: rgba(255, 255, 255, 0.08); padding: 1px 6px; border-radius: 3px; font-family: Consolas, Monaco, monospace; font-size: 11px; }
+
+  .big-number { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">BIZASSIST AI · CALCULATOR</div>
+  <h1>מחשבון יחידת כלכלה אינטראקטיבי</h1>
+  <p class="sub">גרור את המחוונים כדי לראות בזמן-אמת איך מיקס לקוחות, נפח שיחות ומיקס מודלים משפיעים על ההכנסות, עלות הטוקנים והרווח הגולמי. כל המספרים מבוססים על מחירי LLM ו-Pinecone עדכניים ל-2025–2026.</p>
+</header>
+
+<div class="scenarios" id="scenarios">
+  <button class="scen-btn" data-scen="conservative">שמרני · Year 1</button>
+  <button class="scen-btn active" data-scen="realistic">ריאלי · Month 12</button>
+  <button class="scen-btn" data-scen="aggressive">אגרסיבי · Month 18</button>
+  <button class="scen-btn" data-scen="custom">Custom</button>
+</div>
+
+<div class="grid">
+
+  <!-- ============ INPUTS ============ -->
+  <div class="card">
+    <h2>תמהיל לקוחות ונפח שימוש</h2>
+    <div class="desc">קבע כמה לקוחות בכל מדרגה, וכמה שיחות הם מייצרים בחודש</div>
+
+    <div id="tierInputs"></div>
+
+    <div class="params">
+      <h2 style="font-size:14px;margin-bottom:4px">פרמטרים גלובליים</h2>
+      <div class="param-row">
+        <label>% שיחות על GPT-4o-mini (הזול)
+          <span class="hint">ברירת מחדל בפרודקשן: 80–85%. ככל שיותר, עולים פחות.</span>
+        </label>
+        <input type="range" min="50" max="95" step="5" class="tier-slider" id="miniShare">
+        <div class="tier-value"><span id="miniShareVal">80</span>%</div>
+      </div>
+      <div class="param-row">
+        <label>ממוצע תורות לשיחה
+          <span class="hint">FAQ פשוט: 2–3 · תמיכה עמוקה: 5–8</span>
+        </label>
+        <input type="range" min="2" max="10" step="1" class="tier-slider" id="avgTurns">
+        <div class="tier-value"><span id="avgTurnsVal">4</span></div>
+      </div>
+      <div class="param-row">
+        <label>Cache hit rate
+          <span class="hint">חסכון על context חוזר (Anthropic prompt caching + Redis)</span>
+        </label>
+        <input type="range" min="0" max="70" step="5" class="tier-slider" id="cacheHit">
+        <div class="tier-value"><span id="cacheHitVal">30</span>%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RESULTS ============ -->
+  <div class="card">
+    <h2>תוצאות — סיכום חודשי</h2>
+    <div class="desc">נתונים בש"ח לחודש. שער חליפין: $1 = ₪3.65</div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">MRR</div>
+        <div class="kpi-value big-number" id="kpiMRR">₪0</div>
+        <div class="kpi-sub" id="kpiCustomers">0 לקוחות</div>
+      </div>
+      <div class="kpi accent-coral">
+        <div class="kpi-label">COGS</div>
+        <div class="kpi-value big-number" id="kpiCOGS">₪0</div>
+        <div class="kpi-sub" id="kpiConvos">0 שיחות/חודש</div>
+      </div>
+      <div class="kpi accent-navy">
+        <div class="kpi-label">Gross Profit</div>
+        <div class="kpi-value big-number" id="kpiGP">₪0</div>
+        <div class="kpi-sub" id="kpiARR">ARR: ₪0</div>
+      </div>
+      <div class="kpi accent-purple">
+        <div class="kpi-label">Gross Margin</div>
+        <div class="kpi-value big-number"><span id="kpiGM">0</span>%</div>
+        <div class="kpi-sub" id="kpiCostConv">₪0 / שיחה</div>
+      </div>
+    </div>
+
+    <h2 style="font-size:13px;margin-top:18px">פירוק עלות LLM משוקלל</h2>
+    <div class="cost-bar" id="costBar"></div>
+    <div class="cost-legend" id="costLegend"></div>
+
+    <div class="health" id="healthCheck">
+      <span class="health-icon">ℹ️</span>
+      <span id="healthMsg">חשב...</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ BREAKDOWN TABLE ============ -->
+<div class="card" style="margin-top:20px">
+  <h2>פירוק לפי מדרגה</h2>
+  <div class="desc">איפה היחידה הכי רווחית ואיפה הלחץ</div>
+  <table>
+    <thead>
+      <tr>
+        <th>מדרגה</th>
+        <th>לקוחות</th>
+        <th>הכנסה/חודש</th>
+        <th>שיחות/חודש</th>
+        <th>COGS/חודש</th>
+        <th>עלות / שיחה</th>
+        <th>רווח גולמי</th>
+        <th>Margin %</th>
+      </tr>
+    </thead>
+    <tbody id="breakdownRows"></tbody>
+  </table>
+</div>
+
+<div class="notes">
+  <h3>איך החישוב עובד — Key assumptions</h3>
+  <ul>
+    <li><strong>Token costs:</strong> GPT-4o-mini <code>$0.15</code>/M input + <code>$0.60</code>/M output · GPT-4o <code>$2.50</code>/M input + <code>$10</code>/M output · Pinecone <code>$16.50</code>/M reads</li>
+    <li><strong>Per conversation baseline:</strong> ~2,000 tokens RAG context × <em>avgTurns</em> + ~200 tokens user input + ~300 tokens output × <em>avgTurns</em></li>
+    <li><strong>Model routing:</strong> <em>miniShare</em>% הולך ל-GPT-4o-mini (שיחות קצרות/פשוטות), השאר ל-GPT-4o (שיחות ארוכות, מתוך <code>lib/llm/</code>)</li>
+    <li><strong>Cache savings:</strong> <em>cacheHit</em>% מהcontext נחסך ע"י prompt caching (Anthropic 90% discount) + Redis deduping</li>
+    <li><strong>Overage note:</strong> אינו מחושב כאן — כל שיחה מעבר למכסה מחויבת ₪0.15 (margin כ-90%+ כי עלות בפועל ~₪0.04)</li>
+    <li><strong>Pricing:</strong> Starter ₪149 · Growth ₪499 · Business ₪1,499 · Enterprise ₪5,000 (ממוצע)</li>
+    <li><strong>מה לא כלול:</strong> שכר, שיווק, תשתיות שאינן variable, תמיכה אנושית. זה Gross Margin בלבד.</li>
+  </ul>
+</div>
+
+</div>
+
+<script>
+// ==========================================================
+// CONFIG
+// ==========================================================
+const USD_TO_ILS = 3.65;
+
+const TIERS = [
+  { key: 'starter',    name: 'Starter',    price: 149,   convLimit: 500,    color: '#8494B0' },
+  { key: 'growth',     name: 'Growth',     price: 499,   convLimit: 3000,   color: '#00B4A6' },
+  { key: 'business',   name: 'Business',   price: 1499,  convLimit: 10000,  color: '#0B1437' },
+  { key: 'enterprise', name: 'Enterprise', price: 5000,  convLimit: 50000,  color: '#7C3AED' },
+];
+
+// Token cost per million (USD)
+const COST = {
+  mini_in:    0.15,
+  mini_out:   0.60,
+  full_in:    2.50,
+  full_out:   10.00,
+  pinecone:   16.50,  // per million reads
+};
+
+// Per-turn tokens (avg)
+const TOKENS = {
+  rag_context:   2000,   // retrieved chunks injected per turn
+  system_prompt: 800,    // system prompt overhead
+  user_input:    200,    // user message
+  output:        300,    // assistant reply per turn
+  pinecone_reads: 20,    // vector reads per retrieval
+};
+
+// Scenarios (customers per tier)
+const SCENARIOS = {
+  conservative: { starter: 30,  growth: 8,   business: 2,  enterprise: 0,  utilization: 40 },
+  realistic:    { starter: 150, growth: 50,  business: 15, enterprise: 3,  utilization: 60 },
+  aggressive:   { starter: 400, growth: 150, business: 40, enterprise: 10, utilization: 75 },
+  custom:       { starter: 100, growth: 30,  business: 10, enterprise: 2,  utilization: 50 },
+};
+
+// State
+let state = {
+  scenario: 'realistic',
+  tiers: { ...SCENARIOS.realistic },
+  miniShare: 80,
+  avgTurns: 4,
+  cacheHit: 30,
+};
+
+// ==========================================================
+// RENDER
+// ==========================================================
+const $ = (id) => document.getElementById(id);
+const fmtNIS = (n) => '₪' + Math.round(n).toLocaleString('he-IL');
+const fmtK = (n) => n >= 1000 ? '₪' + (n/1000).toFixed(1) + 'K' : fmtNIS(n);
+
+function renderTierInputs() {
+  const host = $('tierInputs');
+  host.innerHTML = '';
+  TIERS.forEach(t => {
+    const val = state.tiers[t.key];
+    const max = t.key === 'enterprise' ? 30 : (t.key === 'business' ? 100 : (t.key === 'growth' ? 400 : 800));
+    const row = document.createElement('div');
+    row.className = 'tier-row';
+    row.innerHTML = `
+      <div class="tier-label">
+        <span class="tier-dot" style="background:${t.color}"></span>
+        ${t.name}
+      </div>
+      <input type="range" class="tier-slider" min="0" max="${max}" step="1" value="${val}" data-tier="${t.key}">
+      <div class="tier-value" id="val_${t.key}">${val}</div>
+    `;
+    host.appendChild(row);
+  });
+  // Utilization slider
+  const util = document.createElement('div');
+  util.className = 'tier-row';
+  util.innerHTML = `
+    <div class="tier-label" style="color:var(--body);font-weight:600">
+      <span style="width:10px;height:10px;border-radius:3px;background:var(--gold);display:inline-block"></span>
+      ניצול קיבולת
+    </div>
+    <input type="range" class="tier-slider" min="10" max="100" step="5" value="${state.tiers.utilization}" id="utilization">
+    <div class="tier-value"><span id="utilVal">${state.tiers.utilization}</span>%</div>
+  `;
+  host.appendChild(util);
+  // Bind events
+  host.querySelectorAll('[data-tier]').forEach(inp => inp.addEventListener('input', onTierChange));
+  $('utilization').addEventListener('input', onUtilChange);
+}
+
+function onTierChange(e) {
+  const k = e.target.dataset.tier;
+  const v = parseInt(e.target.value);
+  state.tiers[k] = v;
+  $('val_' + k).textContent = v;
+  state.scenario = 'custom';
+  updateScenarioTabs();
+  recalc();
+}
+function onUtilChange(e) {
+  const v = parseInt(e.target.value);
+  state.tiers.utilization = v;
+  $('utilVal').textContent = v;
+  state.scenario = 'custom';
+  updateScenarioTabs();
+  recalc();
+}
+
+function renderParamInputs() {
+  const bind = (id, prop, suffix = '') => {
+    $(id).value = state[prop];
+    $(id + 'Val').textContent = state[prop];
+    $(id).addEventListener('input', (e) => {
+      state[prop] = parseInt(e.target.value);
+      $(id + 'Val').textContent = state[prop];
+      recalc();
+    });
+  };
+  bind('miniShare', 'miniShare');
+  bind('avgTurns', 'avgTurns');
+  bind('cacheHit', 'cacheHit');
+}
+
+function updateScenarioTabs() {
+  document.querySelectorAll('.scen-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.scen === state.scenario);
+  });
+}
+function bindScenarios() {
+  document.querySelectorAll('.scen-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      state.scenario = b.dataset.scen;
+      state.tiers = { ...SCENARIOS[state.scenario] };
+      updateScenarioTabs();
+      renderTierInputs();
+      recalc();
+    });
+  });
+}
+
+// ==========================================================
+// CORE CALCULATION
+// ==========================================================
+function calcPerConversationUSD() {
+  const turns = state.avgTurns;
+  const cacheFactor = 1 - (state.cacheHit / 100) * 0.7; // 70% of cachable context is saved on hit
+
+  // Per-conversation token usage
+  const input_per_conv = turns * (TOKENS.rag_context + TOKENS.system_prompt + TOKENS.user_input);
+  const output_per_conv = turns * TOKENS.output;
+  const effective_input = input_per_conv * cacheFactor;
+
+  // Split by model
+  const miniFrac = state.miniShare / 100;
+  const fullFrac = 1 - miniFrac;
+
+  const mini_cost = (effective_input * miniFrac / 1e6) * COST.mini_in
+                  + (output_per_conv * miniFrac / 1e6) * COST.mini_out;
+  const full_cost = (effective_input * fullFrac / 1e6) * COST.full_in
+                  + (output_per_conv * fullFrac / 1e6) * COST.full_out;
+
+  const pine_cost = (TOKENS.pinecone_reads * turns / 1e6) * COST.pinecone;
+
+  return {
+    mini: mini_cost,
+    full: full_cost,
+    pinecone: pine_cost,
+    total: mini_cost + full_cost + pine_cost,
+    input_tokens: effective_input,
+    output_tokens: output_per_conv,
+  };
+}
+
+function recalc() {
+  const perConvUSD = calcPerConversationUSD();
+  const perConvNIS = perConvUSD.total * USD_TO_ILS;
+
+  let totalMRR = 0, totalCOGS = 0, totalConvos = 0, totalCustomers = 0;
+  const rows = [];
+
+  TIERS.forEach(t => {
+    const customers = state.tiers[t.key];
+    const convsPerCustomer = t.convLimit * (state.tiers.utilization / 100);
+    const totalConvosTier = customers * convsPerCustomer;
+    const tierMRR = customers * t.price;
+    const tierCOGS = totalConvosTier * perConvNIS;
+    const tierGP = tierMRR - tierCOGS;
+    const tierMargin = tierMRR > 0 ? (tierGP / tierMRR) * 100 : 0;
+    const costPerConv = tierMRR > 0 && totalConvosTier > 0 ? tierCOGS / totalConvosTier : 0;
+
+    totalMRR += tierMRR;
+    totalCOGS += tierCOGS;
+    totalConvos += totalConvosTier;
+    totalCustomers += customers;
+
+    rows.push({
+      t, customers, tierMRR, tierCOGS, tierGP, tierMargin, costPerConv, totalConvosTier,
+    });
+  });
+
+  const totalGP = totalMRR - totalCOGS;
+  const totalMargin = totalMRR > 0 ? (totalGP / totalMRR) * 100 : 0;
+  const avgCostPerConv = totalConvos > 0 ? totalCOGS / totalConvos : 0;
+
+  // KPIs
+  $('kpiMRR').textContent = fmtK(totalMRR);
+  $('kpiCustomers').textContent = totalCustomers.toLocaleString('he-IL') + ' לקוחות';
+  $('kpiCOGS').textContent = fmtK(totalCOGS);
+  $('kpiConvos').textContent = totalConvos.toLocaleString('he-IL') + ' שיחות/חודש';
+  $('kpiGP').textContent = fmtK(totalGP);
+  $('kpiARR').textContent = 'ARR: ' + fmtK(totalMRR * 12);
+  $('kpiGM').textContent = totalMargin.toFixed(1);
+  $('kpiCostConv').textContent = '₪' + avgCostPerConv.toFixed(3) + ' / שיחה';
+
+  // Cost bar chart
+  renderCostBar(perConvUSD);
+
+  // Breakdown table
+  renderBreakdown(rows);
+
+  // Health check
+  renderHealth(totalMargin, avgCostPerConv, totalCustomers);
+}
+
+function renderCostBar(p) {
+  const total = p.total || 0.001;
+  const miniPct = (p.mini / total) * 100;
+  const fullPct = (p.full / total) * 100;
+  const pinePct = (p.pinecone / total) * 100;
+  $('costBar').innerHTML = `
+    <div style="background:#00B4A6;flex:${miniPct};min-width:36px" title="GPT-4o-mini">mini ${miniPct.toFixed(0)}%</div>
+    <div style="background:#FF5A5F;flex:${fullPct};min-width:36px" title="GPT-4o">4o ${fullPct.toFixed(0)}%</div>
+    <div style="background:#7C3AED;flex:${pinePct};min-width:36px" title="Pinecone">Pine ${pinePct.toFixed(0)}%</div>
+  `;
+  $('costLegend').innerHTML = `
+    <div class="legend-item"><span class="legend-dot" style="background:#00B4A6"></span>GPT-4o-mini · $${p.mini.toFixed(4)}</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#FF5A5F"></span>GPT-4o · $${p.full.toFixed(4)}</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#7C3AED"></span>Pinecone · $${p.pinecone.toFixed(4)}</div>
+    <div class="legend-item" style="margin-right:auto"><strong>סה"כ: $${p.total.toFixed(4)} ≈ ₪${(p.total*USD_TO_ILS).toFixed(3)}</strong></div>
+  `;
+}
+
+function renderBreakdown(rows) {
+  const body = $('breakdownRows');
+  body.innerHTML = '';
+  let totalC = 0, totalR = 0, totalCOGS = 0, totalConvs = 0;
+
+  rows.forEach(r => {
+    totalC += r.customers;
+    totalR += r.tierMRR;
+    totalCOGS += r.tierCOGS;
+    totalConvs += r.totalConvosTier;
+    const barW = Math.max(0, Math.min(100, r.tierMargin)) * 0.8;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="tier-dot" style="background:${r.t.color};margin-left:8px"></span>${r.t.name}</td>
+      <td>${r.customers}</td>
+      <td>${fmtK(r.tierMRR)}</td>
+      <td>${r.totalConvosTier.toLocaleString('he-IL')}</td>
+      <td>${fmtK(r.tierCOGS)}</td>
+      <td>${r.costPerConv > 0 ? '₪' + r.costPerConv.toFixed(3) : '—'}</td>
+      <td>${fmtK(r.tierGP)}</td>
+      <td>${r.tierMargin.toFixed(1)}% <span class="margin-bar" style="width:${barW}px"></span></td>
+    `;
+    body.appendChild(tr);
+  });
+  const totalMargin = totalR > 0 ? ((totalR - totalCOGS) / totalR * 100) : 0;
+  const avgCPC = totalConvs > 0 ? totalCOGS / totalConvs : 0;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><strong>סה״כ משוקלל</strong></td>
+    <td>${totalC}</td>
+    <td>${fmtK(totalR)}</td>
+    <td>${totalConvs.toLocaleString('he-IL')}</td>
+    <td>${fmtK(totalCOGS)}</td>
+    <td>₪${avgCPC.toFixed(3)}</td>
+    <td>${fmtK(totalR - totalCOGS)}</td>
+    <td>${totalMargin.toFixed(1)}%</td>
+  `;
+  body.appendChild(tr);
+}
+
+function renderHealth(margin, cpc, customers) {
+  const el = $('healthCheck');
+  const msg = $('healthMsg');
+  el.classList.remove('good', 'warn', 'bad');
+  let level, text;
+  if (margin >= 65) {
+    level = 'good';
+    text = `✨ <strong>בריא</strong> — Gross Margin ${margin.toFixed(1)}% נמצא מעל הסף של 65%. עלות ממוצעת לשיחה ₪${cpc.toFixed(3)}. ניתן להגדיל שיווק.`;
+  } else if (margin >= 50) {
+    level = 'warn';
+    text = `⚠️ <strong>בסדר, לא אידיאלי</strong> — Margin ${margin.toFixed(1)}%. שקול: להעלות % של mini, לקצר history, להוסיף caching, או להעלות מחירים במדרגות הכבדות.`;
+  } else if (margin > 0) {
+    level = 'bad';
+    text = `🚨 <strong>מתחת לסף</strong> — Margin ${margin.toFixed(1)}% לא מכסה תפעול. בדוק: האם המדרגה הזולה מנצלת יותר מדי? האם מיקס המודלים מוטה ל-GPT-4o?`;
+  } else {
+    level = 'bad';
+    text = `❗ <strong>הפסד</strong> — COGS עולה על MRR. כנראה יחידת כלכלה שבורה — או ש-utilization חרג מהמכסה ללא חיוב overage.`;
+  }
+  el.classList.add(level);
+  msg.innerHTML = text;
+}
+
+// ==========================================================
+// INIT
+// ==========================================================
+renderTierInputs();
+renderParamInputs();
+bindScenarios();
+updateScenarioTabs();
+recalc();
+
+</script>
+</body>
+</html>
